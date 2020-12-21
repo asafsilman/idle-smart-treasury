@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 pragma solidity >=0.6.0 <=0.7.5;
+pragma experimental ABIEncoderV2;
 
 interface BPool {
 
@@ -80,4 +81,45 @@ interface BPool {
     function transferFrom(
         address src, address dst, uint amt
     ) external returns (bool);
+}
+
+interface ConfigurableRightsPool {
+    function createPool(
+        uint initialSupply,
+        uint minimumWeightChangeBlockPeriodParam,
+        uint addTokenTimeLockInBlocksParam
+    ) external;
+}
+
+interface IBFactory {
+    function isBPool(address b) external view returns (bool);
+    function newBPool() external returns (BPool);
+}
+
+interface ICRPFactory {
+    struct PoolParams {
+        // Balancer Pool Token (representing shares of the pool)
+        string poolTokenSymbol;
+        string poolTokenName;
+        // Tokens inside the Pool
+        address[] constituentTokens;
+        uint[] tokenBalances;
+        uint[] tokenWeights;
+        uint swapFee;
+    }
+
+    struct Rights {
+        bool canPauseSwapping;
+        bool canChangeSwapFee;
+        bool canChangeWeights;
+        bool canAddRemoveTokens;
+        bool canWhitelistLPs;
+        bool canChangeCap;
+    }
+
+    function newCrp(
+        address factoryAddress,
+        PoolParams calldata poolParams,
+        Rights calldata rights
+    ) external returns (ConfigurableRightsPool);
 }
