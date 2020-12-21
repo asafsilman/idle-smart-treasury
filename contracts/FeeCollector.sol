@@ -158,7 +158,7 @@ contract FeeCollector is IFeeCollector, AccessControl {
         smartTreasuryBPool.transfer(toAddress, amount);
     } // withdraw balancer liquidity token to address. Called by admin
 
-    function setAdmin(address newAdmin) external override {
+    function replaceAdmin(address newAdmin) external override {
         require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Caller is not an admin");
 
         grantRole(DEFAULT_ADMIN_ROLE, newAdmin);

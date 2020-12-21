@@ -16,5 +16,5 @@ interface IFeeCollector {
 
    function withdraw(address toAddress, uint256 amount) external; // withdraw balancer liquidity token to address. Called by admin
 
-   function setAdmin(address newAdmin) external; // called by admin
+   function replaceAdmin(address newAdmin) external; // called by admin
 }
