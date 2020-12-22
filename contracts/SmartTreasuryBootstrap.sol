@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity >=0.6.0 <=0.7.5;
+pragma solidity = 0.6.6;
 pragma experimental ABIEncoderV2;
 
 import "./interfaces/ISmartTreasuryBootstrap.sol";
@@ -11,6 +11,7 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap {
     bool initialised;
 
     address admin;
+    address crpaddress;
 
     IBFactory private balancer_bfactory;
     ICRPFactory private balancer_crpfactory;
@@ -69,8 +70,16 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap {
             rights
         );
 
-        idle.approve(address(crp), balances[0]); // approve transfer of idle
-        weth.approve(address(crp), balances[1]); // approve transfer of idle
+        crpaddress = address(crp);
+
+        idle.approve(crpaddress, balances[0]); // approve transfer of idle
+        weth.approve(crpaddress, balances[1]); // approve transfer of idle
+    }
+    function swap() external override {}
+    function bootstrap() external override {
+        require(msg.sender == admin, "Caller is not admin");
+
+        ConfigurableRightsPool crp = ConfigurableRightsPool(crpaddress);
 
         crp.createPool(
             1000 * 10 ** 18, 
@@ -78,7 +87,5 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap {
             3 days
         );
     }
-    function swap() external override {}
-    function bootstrap() external override {}
     function renounce() external override {}
 }

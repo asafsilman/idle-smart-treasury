@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity >=0.6.0 <=0.7.5;
+pragma solidity =0.6.6;
 
 // import '@uniswap/v2-periphery/contracts/libraries/UniswapV2Library.sol';
 import '@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol';
@@ -9,6 +9,7 @@ import '@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol';
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/EnumerableSet.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 
 
@@ -19,6 +20,7 @@ import "./interfaces/BalancerInterface.sol";
 contract FeeCollector is IFeeCollector, AccessControl {
     using EnumerableSet for EnumerableSet.AddressSet;
     using SafeMath for uint256;
+    using SafeERC20 for IERC20;
 
     address feeTreasuryAddress;
     address smartTreasuryAddress;
@@ -68,10 +70,10 @@ contract FeeCollector is IFeeCollector, AccessControl {
             if (_currentBalance > 0) {
                 // notice how decimals are not considered since we are dealing with ratios
                 uint256 _feeToSmartTreasury = _currentBalance.mul(ratio).div(FULL_ALLOC); // sent to smartTreasury
-                uint256 _feeToFeeTreasury   = _currentBalance - _feeToSmartTreasury; // sent to feeTreasury
+                uint256 _feeToFeeTreasury   = _currentBalance.sub(_feeToSmartTreasury); // sent to feeTreasury
             
                 if (_feeToFeeTreasury > 0){
-                    _tokenInterface.transfer(feeTreasuryAddress, _feeToFeeTreasury);
+                    _tokenInterface.safeTransfer(feeTreasuryAddress, _feeToFeeTreasury);
                 }
 
                 if (_feeToSmartTreasury > 0) {
@@ -154,8 +156,10 @@ contract FeeCollector is IFeeCollector, AccessControl {
     }
 
     function withdraw(address toAddress, uint256 amount) external override {
-        BPool smartTreasuryBPool = BPool(smartTreasuryAddress);
-        smartTreasuryBPool.transfer(toAddress, amount);
+        require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Caller is not an admin");
+
+        IERC20 smartTreasuryLiquidityToken = IERC20(smartTreasuryAddress);
+        smartTreasuryLiquidityToken.safeTransfer(toAddress, amount);
     } // withdraw balancer liquidity token to address. Called by admin
 
     function replaceAdmin(address newAdmin) external override {
