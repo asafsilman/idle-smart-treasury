@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity =0.6.6;
+pragma solidity = 0.6.6;
 
-// import '@uniswap/v2-periphery/contracts/libraries/UniswapV2Library.sol';
 import '@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol';
-import '@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol';
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/EnumerableSet.sol";
@@ -30,7 +28,7 @@ contract FeeCollector is IFeeCollector, AccessControl {
   IERC20 private wethInterface;
 
   // Need to use openzeppelin enumerableset
-  EnumerableSet.AddressSet private whitelistedTokens;
+  EnumerableSet.AddressSet private depositTokens;
 
   uint256 ratio; // 100000 = 100%. Ratio sent to smartTreasury vs feeTreasury
 
@@ -64,9 +62,9 @@ contract FeeCollector is IFeeCollector, AccessControl {
   function deposit() public override {
     require(hasRole(WHITELISTED, msg.sender), "Caller is not an admin");
 
-    uint counter = whitelistedTokens.length();
+    uint counter = depositTokens.length();
     for (uint index = 0; index < counter; index++) {
-      address _tokenAddress = whitelistedTokens.at(index);
+      address _tokenAddress = depositTokens.at(index);
       IERC20 _tokenInterface = IERC20(_tokenAddress);
 
       uint256 _currentBalance = _tokenInterface.balanceOf(address(this));
@@ -154,20 +152,20 @@ contract FeeCollector is IFeeCollector, AccessControl {
   function addTokenToDepositList(address _tokenAddress) external override {
     // cannot be weth
     require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Caller is not an admin");
-    require(whitelistedTokens.length() < MAX_NUM_FEE_TOKENS, "Too many tokens");
+    require(depositTokens.length() < MAX_NUM_FEE_TOKENS, "Too many tokens");
     require(_tokenAddress != weth, "WETH fees are not supported"); // There is no WETH -> WETH pool in uniswap
 
     IERC20(_tokenAddress).safeApprove(address(uniswapRouterV2), uint256(-1)); // max approval
-    whitelistedTokens.add(_tokenAddress);
+    depositTokens.add(_tokenAddress);
   }
 
   // Unregister a token. Called by admin
-  function removeTokenFromDepositList(address tokenAddress) external override {
+  function removeTokenFromDepositList(address _tokenAddress) external override {
     require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Caller is not an admin");
-    // require(whitelistedTokens.contains(tokenAddress), "tokenAddress not cointained in whitelist");
+    // require(depositTokens.contains(_tokenAddress), "tokenAddress not cointained in whitelist");
 
-    IERC20(tokenAddress).safeApprove(address(uniswapRouterV2), 0); // 0 approval for uniswap
-    whitelistedTokens.remove(tokenAddress);
+    IERC20(_tokenAddress).safeApprove(address(uniswapRouterV2), 0); // 0 approval for uniswap
+    depositTokens.remove(_tokenAddress);
   }
 
   function withdraw(address _token, address _toAddress, uint256 _amount) external override {
@@ -211,5 +209,5 @@ contract FeeCollector is IFeeCollector, AccessControl {
   function getFeeTreasuryAddress() external view returns (address) { return (feeTreasuryAddress); }
   function getSmartTreasuryAddress() external view returns (address) { return (smartTreasuryAddress); }
 
-  function isTokenInDespositList(address _tokenAddress) external view returns (bool) {return (whitelistedTokens.contains(_tokenAddress)); }
+  function isTokenInDespositList(address _tokenAddress) external view returns (bool) {return (depositTokens.contains(_tokenAddress)); }
 }

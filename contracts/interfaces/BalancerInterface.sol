@@ -91,6 +91,16 @@ interface ConfigurableRightsPool {
 }
 
 interface IBFactory {
+  event LOG_NEW_POOL(
+    address indexed caller,
+    address indexed pool
+  );
+
+  event LOG_BLABS(
+    address indexed caller,
+    address indexed blabs
+  );
+
   function isBPool(address b) external view returns (bool);
   function newBPool() external returns (BPool);
 }
