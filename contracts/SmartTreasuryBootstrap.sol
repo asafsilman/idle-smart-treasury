@@ -25,7 +25,6 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
 
   // using UniswapV2Library;
 
-  address admin;
   address crpaddress;
 
   IBFactory private balancer_bfactory;
@@ -34,8 +33,8 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
   IUniswapV2Factory private uniswapFactory;
   IUniswapV2Router02 private uniswapRouterV2;
 
-  IERC20 private immutable idle;
-  IERC20 private immutable weth;
+  IERC20 private idle;
+  IERC20 private weth;
 
   EnumerableSet.AddressSet private depositTokens;
 
@@ -82,8 +81,6 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
   }
 
   function bootstrap() external override onlyOwner {
-    require(msg.sender == admin, "Caller is not admin");
-
     uint price0Cumulative;
     uint price1Cumulative;
     uint IdlePerWeth;
