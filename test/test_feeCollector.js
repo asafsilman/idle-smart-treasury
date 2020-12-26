@@ -21,7 +21,7 @@ contract("FeeCollector", async accounts => {
 
         this.mockWETH = await mockWETH.new();
         this.mockDAI  = await mockDAI.new(); // 600 dai == 1 WETH
-        this.mockIDLE = await mockIDLE.new() // 135 idle == 1 WETH == ~ $4.5
+        this.mockIDLE = await mockIDLE.new() // 135 idle == 1 WETH == ~ $4.45
         
         // get uniswap pool
         this.mockWETH.approve(addresses.uniswapRouterAddress, constants.MAX_UINT256)

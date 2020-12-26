@@ -4,6 +4,10 @@ pragma solidity = 0.6.6;
 pragma experimental ABIEncoderV2;
 
 import '@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol';
+import '@uniswap/v2-periphery/contracts/libraries/UniswapV2OracleLibrary.sol';
+
+import '@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol';
+import '@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol';
 
 import "./interfaces/ISmartTreasuryBootstrap.sol";
 import "./interfaces/BalancerInterface.sol";
@@ -19,73 +23,42 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
   using SafeERC20 for IERC20;
   using SafeMath for uint256;
 
+  // using UniswapV2Library;
+
   address admin;
   address crpaddress;
 
   IBFactory private balancer_bfactory;
   ICRPFactory private balancer_crpfactory;
 
+  IUniswapV2Factory private uniswapFactory;
   IUniswapV2Router02 private uniswapRouterV2;
 
-  IERC20 private idle;
-  IERC20 private weth;
+  IERC20 private immutable idle;
+  IERC20 private immutable weth;
 
   EnumerableSet.AddressSet private depositTokens;
 
-  constructor (address _balancer_bfactory, address _balancer_crpfactory, address _uniswapRouter, address _idle, address _weth) public {
+  constructor (
+    address _balancerBFactory,
+    address _balancerCRPFactory,
+    address _uniswapFactory,
+    address _uniswapRouter,
+    address _idle,
+    address _weth
+  ) public {
     admin = msg.sender;
 
-    balancer_bfactory = IBFactory(_balancer_bfactory);
-    balancer_crpfactory = ICRPFactory(_balancer_crpfactory);
+    balancer_bfactory = IBFactory(_balancerBFactory);
+    balancer_crpfactory = ICRPFactory(_balancerCRPFactory);
 
+    uniswapFactory = IUniswapV2Factory(_uniswapFactory);
     uniswapRouterV2 = IUniswapV2Router02(_uniswapRouter); // configure uniswap router
 
     idle = IERC20(_idle);
     weth = IERC20(_weth);
   }
 
-  function initialise() external override onlyOwner {
-    address[] memory tokens = new address[](2);
-    tokens[0] = address(idle);
-    tokens[1] = address(weth);
-
-    uint[] memory balances = new uint[](2);
-    balances[0] = idle.balanceOf(address(this));
-    balances[1] = weth.balanceOf(address(this));
-
-    uint[] memory weights = new uint[](2);
-    weights[0] = 99 * 10 ** 18;
-    weights[1] = 1  * 10 ** 18;
-
-    ICRPFactory.PoolParams memory params = ICRPFactory.PoolParams({
-      poolTokenSymbol: "ISTT",
-      poolTokenName: "Idle Smart Treasury Token",
-      constituentTokens: tokens,
-      tokenBalances: balances,
-      tokenWeights: weights,
-      swapFee: 5 * 10**16 // .5% fee = 50000000000000000
-    });
-
-    ICRPFactory.Rights memory rights = ICRPFactory.Rights({
-      canPauseSwapping:   true,
-      canChangeSwapFee:   true,
-      canChangeWeights:   true,
-      canAddRemoveTokens: true,
-      canWhitelistLPs:    true,
-      canChangeCap:       true
-    });
-    
-    ConfigurableRightsPool crp = balancer_crpfactory.newCrp(
-      address(balancer_bfactory),
-      params,
-      rights
-    );
-
-    crpaddress = address(crp);
-
-    idle.approve(crpaddress, balances[0]); // approve transfer of idle
-    weth.approve(crpaddress, balances[1]); // approve transfer of idle
-  }
   function swap() external override onlyOwner {
     uint counter = depositTokens.length();
     for (uint index = 0; index < counter; index++) {
@@ -107,18 +80,116 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
       );
     }
   }
+
   function bootstrap() external override onlyOwner {
     require(msg.sender == admin, "Caller is not admin");
 
-    ConfigurableRightsPool crp = ConfigurableRightsPool(crpaddress);
+    uint price0Cumulative;
+    uint price1Cumulative;
+    uint IdlePerWeth;
+
+    // Get uniswap price for idle
+    IUniswapV2Pair pair = IUniswapV2Pair(uniswapFactory.getPair(address(idle), address(weth)));
+    (price0Cumulative, price1Cumulative, ) = UniswapV2OracleLibrary.currentCumulativePrices(address(pair));
+
+    if (pair.token0() == address(weth)) {
+      IdlePerWeth = price1Cumulative; // TODO:  Validate that this is the correct value
+    } else {
+      IdlePerWeth = price0Cumulative;
+    }
+    
+    address[] memory tokens = new address[](2);
+    tokens[0] = address(idle);
+    tokens[1] = address(weth);
+
+    uint[] memory balances = new uint[](2);
+    balances[0] = idle.balanceOf(address(this));
+    balances[1] = weth.balanceOf(address(this));
+
+    uint[] memory valueInWeth = new uint[](2);
+    valueInWeth[0] = balances[0].mul(IdlePerWeth);
+    valueInWeth[1] = balances[1];
+
+    uint totalValueInPool = valueInWeth[0].add(valueInWeth[1]);
+
+    uint[] memory weights = new uint[](2);
+    weights[0] = totalValueInPool.div(balances[0]); // total value / num IDLE tokens
+    weights[1] = totalValueInPool.div(balances[0]); // total value / num WETH tokens
+
+    ICRPFactory.PoolParams memory params = ICRPFactory.PoolParams({
+      poolTokenSymbol: "ISTT",
+      poolTokenName: "Idle Smart Treasury Token",
+      constituentTokens: tokens,
+      tokenBalances: balances,
+      tokenWeights: weights,
+      swapFee: 5 * 10**16 // .5% fee = 50000000000000000
+    });
+
+    ICRPFactory.Rights memory rights = ICRPFactory.Rights({
+      canPauseSwapping:   true,
+      canChangeSwapFee:   true,
+      canChangeWeights:   true,
+      canAddRemoveTokens: true,
+      canWhitelistLPs:    true,
+      canChangeCap:       true
+    });
+    
+    /**** DEPLOY POOL ****/
+
+    ConfigurableRightsPool crp = balancer_crpfactory.newCrp(
+      address(balancer_bfactory),
+      params,
+      rights
+    );
+
+    // A balancer pool with canWhitelistLPs does not initially whitelist the controller
+    // This must be manually set
+    crp.whitelistLiquidityProvider(address(this));
+
+    crpaddress = address(crp);
+
+    idle.approve(crpaddress, balances[0]); // approve transfer of idle
+    weth.approve(crpaddress, balances[1]); // approve transfer of idle
+
+    /**** CREATE POOL ****/
 
     crp.createPool(
         1000 * 10 ** 18, 
-        3 days,
-        3 days
+        3 days, // minimumWeightChangeBlockPeriodParam
+        3 days  // addTokenTimeLockInBlocksParam
+    );
+
+    // 
+    uint[] memory finalWeights = new uint[](2);
+    finalWeights[0] = 9;
+    finalWeights[1] = 1;
+
+    /**** CALL GRADUAL POOL UPDATE ****/
+
+    crp.updateWeightsGradually(
+      finalWeights,
+      block.timestamp,
+      block.timestamp.add(90 days)
     );
   }
-  function renounce() external override {}
+
+  function renounce(address _governanceAddress, address _feeCollectorAddress) external override onlyOwner {
+    ConfigurableRightsPool crp = ConfigurableRightsPool(crpaddress);
+
+    crp.whitelistLiquidityProvider(_governanceAddress);
+    crp.whitelistLiquidityProvider(_feeCollectorAddress);
+    crp.removeWhitelistedLiquidityProvider(address(this));
+
+    crp.setController(_governanceAddress);
+
+    crp.transfer(_feeCollectorAddress, crp.balanceOf(address(this)));
+  }
+
+  // withdraw arbitrary token to address. Called by admin, if any remaining tokens on contract
+  function withdraw(address _token, address _toAddress, uint256 _amount) external override onlyOwner {
+    IERC20 token = IERC20(_token);
+    token.safeTransfer(_toAddress, _amount);
+  }
 
   // called by owner
   function _addTokenToDepositList(address _tokenAddress) external onlyOwner {
@@ -130,7 +201,7 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
   }
 
   // Unregister a token. Called by admin
-  function removeTokenFromDepositList(address _tokenAddress) external onlyOwner {
+  function _removeTokenFromDepositList(address _tokenAddress) external onlyOwner {
     
     IERC20(_tokenAddress).safeApprove(address(uniswapRouterV2), 0); // 0 approval for uniswap
     depositTokens.remove(_tokenAddress);

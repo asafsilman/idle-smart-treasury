@@ -168,12 +168,13 @@ contract FeeCollector is IFeeCollector, AccessControl {
     depositTokens.remove(_tokenAddress);
   }
 
+  // withdraw balancer liquidity token to address. Called by admin
   function withdraw(address _token, address _toAddress, uint256 _amount) external override {
     require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Caller is not an admin");
 
     IERC20 token = IERC20(_token);
     token.safeTransfer(_toAddress, _amount);
-  } // withdraw balancer liquidity token to address. Called by admin
+  }
 
   // exchange liquidity token for underlying token and withdraw to _toAddress
   function withdrawUnderlying(address _toAddress, uint256 _amount) external override {

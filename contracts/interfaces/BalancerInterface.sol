@@ -88,6 +88,19 @@ interface ConfigurableRightsPool {
     uint minimumWeightChangeBlockPeriodParam,
     uint addTokenTimeLockInBlocksParam
   ) external;
+
+  function updateWeightsGradually(
+        uint[] calldata newWeights,
+        uint startBlock,
+        uint endBlock
+    ) external;
+  
+  function whitelistLiquidityProvider(address provider) external;
+  function removeWhitelistedLiquidityProvider(address provider) external;
+  function setController(address newOwner) external;
+
+  function transfer(address recipient, uint amount) external returns (bool);
+  function balanceOf(address account) external returns (uint)
 }
 
 interface IBFactory {
