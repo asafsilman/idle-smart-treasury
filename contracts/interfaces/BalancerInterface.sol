@@ -100,7 +100,7 @@ interface ConfigurableRightsPool {
   function setController(address newOwner) external;
 
   function transfer(address recipient, uint amount) external returns (bool);
-  function balanceOf(address account) external returns (uint)
+  function balanceOf(address account) external returns (uint);
 }
 
 interface IBFactory {

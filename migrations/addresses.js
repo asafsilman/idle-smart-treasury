@@ -1,5 +1,6 @@
-module.exports = {
+const addresses = {
     development: {
+        uniswapFactory: '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f',
         uniswapRouterAddress: '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D', // https://uniswap.org/docs/v2/smart-contracts/router02
         
         // development addresses
@@ -26,4 +27,8 @@ module.exports = {
             '0xc00e94cb662c3520282e6f5717214004a7f26888'  // comp
         ]
     }
-}
+};
+
+addresses['development-fork'] = addresses.development
+
+module.exports = addresses;

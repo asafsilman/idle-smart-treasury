@@ -7,6 +7,8 @@ module.exports = function (deployer, network) {
   deployer.deploy(SmartTreasuryBootstrap,
     _addresses.balancerCoreFactory,
     _addresses.balancerCRPFactory,
+    _addresses.uniswapFactory,
+    _addresses.uniswapRouterAddress,
     _addresses.idle,
     _addresses.weth
   )

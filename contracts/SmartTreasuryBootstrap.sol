@@ -25,7 +25,9 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
 
   // using UniswapV2Library;
 
-  address crpaddress;
+  address private crpaddress;
+
+  uint private idlePerWeth;
 
   IBFactory private balancer_bfactory;
   ICRPFactory private balancer_crpfactory;
@@ -46,8 +48,6 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
     address _idle,
     address _weth
   ) public {
-    admin = msg.sender;
-
     balancer_bfactory = IBFactory(_balancerBFactory);
     balancer_crpfactory = ICRPFactory(_balancerCRPFactory);
 
@@ -80,21 +80,14 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
     }
   }
 
-  function bootstrap() external override onlyOwner {
-    uint price0Cumulative;
-    uint price1Cumulative;
-    uint IdlePerWeth;
-
-    // Get uniswap price for idle
+  function _getOraclePrice() public view returns (uint price0Cumulative, uint price1Cumulative) {    
     IUniswapV2Pair pair = IUniswapV2Pair(uniswapFactory.getPair(address(idle), address(weth)));
     (price0Cumulative, price1Cumulative, ) = UniswapV2OracleLibrary.currentCumulativePrices(address(pair));
 
-    if (pair.token0() == address(weth)) {
-      IdlePerWeth = price1Cumulative; // TODO:  Validate that this is the correct value
-    } else {
-      IdlePerWeth = price0Cumulative;
-    }
-    
+    return (price0Cumulative, price1Cumulative);
+  }
+
+  function bootstrap() external override onlyOwner {
     address[] memory tokens = new address[](2);
     tokens[0] = address(idle);
     tokens[1] = address(weth);
@@ -104,7 +97,7 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
     balances[1] = weth.balanceOf(address(this));
 
     uint[] memory valueInWeth = new uint[](2);
-    valueInWeth[0] = balances[0].mul(IdlePerWeth);
+    valueInWeth[0] = balances[0].mul(idlePerWeth);
     valueInWeth[1] = balances[1];
 
     uint totalValueInPool = valueInWeth[0].add(valueInWeth[1]);
@@ -151,7 +144,7 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
     /**** CREATE POOL ****/
 
     crp.createPool(
-        1000 * 10 ** 18, 
+        1000 * 10 ** 18, // mint 1000 shares
         3 days, // minimumWeightChangeBlockPeriodParam
         3 days  // addTokenTimeLockInBlocksParam
     );
@@ -161,12 +154,12 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
     finalWeights[0] = 9;
     finalWeights[1] = 1;
 
-    /**** CALL GRADUAL POOL UPDATE ****/
+    /**** CALL GRADUAL POOL WEIGHT UPDATE ****/
 
     crp.updateWeightsGradually(
       finalWeights,
       block.timestamp,
-      block.timestamp.add(90 days)
+      block.timestamp.add(90 days) // ~ 3 months
     );
   }
 
@@ -183,9 +176,17 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
   }
 
   // withdraw arbitrary token to address. Called by admin, if any remaining tokens on contract
-  function withdraw(address _token, address _toAddress, uint256 _amount) external override onlyOwner {
+  function withdraw(address _token, address _toAddress, uint256 _amount) external onlyOwner {
     IERC20 token = IERC20(_token);
     token.safeTransfer(_toAddress, _amount);
+  }
+
+  // called by owner
+  function _setIDLEPrice(uint _idlePerWeth) external onlyOwner {
+    // set idle price per weth by owner
+    // used for setting initial weights of smart treasury
+    
+    idlePerWeth = _idlePerWeth;
   }
 
   // called by owner
