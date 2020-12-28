@@ -84,6 +84,12 @@ interface BPool {
 
 interface ConfigurableRightsPool {
   function createPool(
+    uint initialSupply
+    // uint minimumWeightChangeBlockPeriodParam,
+    // uint addTokenTimeLockInBlocksParam
+  ) external;
+
+  function createPool(
     uint initialSupply,
     uint minimumWeightChangeBlockPeriodParam,
     uint addTokenTimeLockInBlocksParam

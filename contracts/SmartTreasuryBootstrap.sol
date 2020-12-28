@@ -80,31 +80,30 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
     }
   }
 
-  function _getOraclePrice() public view returns (uint price0Cumulative, uint price1Cumulative) {    
-    IUniswapV2Pair pair = IUniswapV2Pair(uniswapFactory.getPair(address(idle), address(weth)));
-    (price0Cumulative, price1Cumulative, ) = UniswapV2OracleLibrary.currentCumulativePrices(address(pair));
-
-    return (price0Cumulative, price1Cumulative);
-  }
-
   function bootstrap() external override onlyOwner {
+    uint idleBalance = idle.balanceOf(address(this));
+    uint wethBalance = weth.balanceOf(address(this));
+
+    require(idleBalance > 0, "Cannot bootstrap without idle in contract");
+    require(wethBalance > 0, "Cannot bootstrap without weth in contract");
+
     address[] memory tokens = new address[](2);
     tokens[0] = address(idle);
     tokens[1] = address(weth);
 
     uint[] memory balances = new uint[](2);
-    balances[0] = idle.balanceOf(address(this));
-    balances[1] = weth.balanceOf(address(this));
+    balances[0] = idleBalance;
+    balances[1] = wethBalance;
 
     uint[] memory valueInWeth = new uint[](2);
-    valueInWeth[0] = balances[0].mul(idlePerWeth);
+    valueInWeth[0] = balances[0].mul(idlePerWeth).div(10**18);
     valueInWeth[1] = balances[1];
 
     uint totalValueInPool = valueInWeth[0].add(valueInWeth[1]);
 
     uint[] memory weights = new uint[](2);
     weights[0] = totalValueInPool.div(balances[0]); // total value / num IDLE tokens
-    weights[1] = totalValueInPool.div(balances[0]); // total value / num WETH tokens
+    weights[1] = totalValueInPool.div(balances[1]); // total value / num WETH tokens
 
     ICRPFactory.PoolParams memory params = ICRPFactory.PoolParams({
       poolTokenSymbol: "ISTT",
@@ -185,6 +184,7 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
   function _setIDLEPrice(uint _idlePerWeth) external onlyOwner {
     // set idle price per weth by owner
     // used for setting initial weights of smart treasury
+    // expressed in Wei
     
     idlePerWeth = _idlePerWeth;
   }
@@ -204,4 +204,6 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
     IERC20(_tokenAddress).safeApprove(address(uniswapRouterV2), 0); // 0 approval for uniswap
     depositTokens.remove(_tokenAddress);
   }
+
+  function _getCRPAddress() external view returns (address) { return crpaddress; }
 }
