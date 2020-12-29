@@ -40,7 +40,7 @@ contract FeeCollector is IFeeCollector, AccessControl {
    * @dev Initialises the fee collector with addresses for the feeTreasury, the smartTreasury, weth address, and the uniswap router.
    * Also initialises the sender as admin, and whitelists for calling deposit
    */
-  constructor (address _uniswapRouter, address _weth, address _feeTreasuryAddress, address _smartTreasuryAddress) public {
+  constructor (address _uniswapRouter, address _weth, address _feeTreasuryAddress) public {
     _setupRole(DEFAULT_ADMIN_ROLE, msg.sender); // setup deployed as admin
     _setupRole(WHITELISTED, msg.sender); // setup admin as whitelisted address
     
@@ -53,14 +53,11 @@ contract FeeCollector is IFeeCollector, AccessControl {
     ratio = 0; // setup ratio
     
     feeTreasuryAddress = _feeTreasuryAddress; // setup feeTreasury address
-    smartTreasuryAddress = _smartTreasuryAddress; // setup smartTreasury address
-
-    // approve weth deposits to smartTreasury
-    wethInterface.safeApprove(_smartTreasuryAddress, uint256(-1)); // max approval
   }
 
   function deposit() public override {
     require(hasRole(WHITELISTED, msg.sender), "Caller is not an admin");
+    require(smartTreasuryAddress!=address(0), "Smart Treasury is not set");
 
     uint counter = depositTokens.length();
     for (uint index = 0; index < counter; index++) {

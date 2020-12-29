@@ -21,14 +21,14 @@ contract('SmartTreasuryBootstrap', async accounts => {
     this.mockIDLE = await mockIDLE.new(); // 135 idle == 1 WETH == ~ $4.45
 
     // get uniswap pool
-    this.mockWETH.approve(addresses.uniswapRouterAddress, constants.MAX_UINT256)
-    this.mockDAI.approve(addresses.uniswapRouterAddress, constants.MAX_UINT256)
-    this.mockUSDC.approve(addresses.uniswapRouterAddress, constants.MAX_UINT256)
+    await this.mockWETH.approve(addresses.uniswapRouterAddress, constants.MAX_UINT256)
+    await this.mockDAI.approve(addresses.uniswapRouterAddress, constants.MAX_UINT256)
+    await this.mockUSDC.approve(addresses.uniswapRouterAddress, constants.MAX_UINT256)
 
     this.uniswapRouterInstance = await IUniswapV2Router02.at(addresses.uniswapRouterAddress);
 
     // initialise the mockWETH/mockDAI uniswap pool
-    this.uniswapRouterInstance.addLiquidity(
+    await this.uniswapRouterInstance.addLiquidity(
       this.mockWETH.address, this.mockDAI.address,
       web3.utils.toWei("500"), web3.utils.toWei("300000"), // 300,000 DAI deposit into pool
       0, 0,
@@ -37,7 +37,7 @@ contract('SmartTreasuryBootstrap', async accounts => {
     )
 
     // initialise the mockWETH/mockUSDC uniswap pool
-    this.uniswapRouterInstance.addLiquidity(
+    await this.uniswapRouterInstance.addLiquidity(
       this.mockWETH.address, this.mockUSDC.address,
       web3.utils.toWei("500"), BNify("300000").mul(BNify('1000000')), // 300,000 USDC deposit into pool
       0, 0,
@@ -51,7 +51,9 @@ contract('SmartTreasuryBootstrap', async accounts => {
       addresses.uniswapFactory,
       addresses.uniswapRouterAddress,
       this.mockIDLE.address,
-      this.mockWETH.address
+      this.mockWETH.address,
+      addresses.governanceAddress,
+      addresses.governanceAddress // set the feecollector as governance for the time being
     )
 
     await this.smartTreasuryBootstrapInstance._addTokenToDepositList(this.mockDAI.address)
@@ -81,6 +83,7 @@ contract('SmartTreasuryBootstrap', async accounts => {
     await this.smartTreasuryBootstrapInstance.swap();
 
     await this.smartTreasuryBootstrapInstance._setIDLEPrice(web3.utils.toWei('135'));
+    await this.smartTreasuryBootstrapInstance.initialise();
     await this.smartTreasuryBootstrapInstance.bootstrap();
 
     let crpAddress = await this.smartTreasuryBootstrapInstance._getCRPAddress.call();

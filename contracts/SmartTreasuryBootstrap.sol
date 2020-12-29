@@ -18,6 +18,8 @@ import "@openzeppelin/contracts/utils/EnumerableSet.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 
+import "./libraries/BalancerConstants.sol";
+
 contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
   using EnumerableSet for EnumerableSet.AddressSet;
   using SafeERC20 for IERC20;
@@ -40,13 +42,18 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
 
   EnumerableSet.AddressSet private depositTokens;
 
+  address governanceAddress;
+  address feeCollectorAddress;
+
   constructor (
     address _balancerBFactory,
     address _balancerCRPFactory,
     address _uniswapFactory,
     address _uniswapRouter,
     address _idle,
-    address _weth
+    address _weth,
+    address _governanceAddress,
+    address _feeCollectorAddress
   ) public {
     balancer_bfactory = IBFactory(_balancerBFactory);
     balancer_crpfactory = ICRPFactory(_balancerCRPFactory);
@@ -56,6 +63,9 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
 
     idle = IERC20(_idle);
     weth = IERC20(_weth);
+
+    governanceAddress = _governanceAddress;
+    feeCollectorAddress = _feeCollectorAddress;
   }
 
   function swap() external override onlyOwner {
@@ -80,12 +90,12 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
     }
   }
 
-  function bootstrap() external override onlyOwner {
+  function initialise() external override onlyOwner {
     uint idleBalance = idle.balanceOf(address(this));
     uint wethBalance = weth.balanceOf(address(this));
 
-    require(idleBalance > 0, "Cannot bootstrap without idle in contract");
-    require(wethBalance > 0, "Cannot bootstrap without weth in contract");
+    require(idleBalance > 0, "Cannot initialise without idle in contract");
+    require(wethBalance > 0, "Cannot initialise without weth in contract");
 
     address[] memory tokens = new address[](2);
     tokens[0] = address(idle);
@@ -96,14 +106,18 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
     balances[1] = wethBalance;
 
     uint[] memory valueInWeth = new uint[](2);
-    valueInWeth[0] = balances[0].mul(idlePerWeth).div(10**18);
+    valueInWeth[0] = balances[0].mul(10**18).div(idlePerWeth);
     valueInWeth[1] = balances[1];
 
     uint totalValueInPool = valueInWeth[0].add(valueInWeth[1]);
 
+    // Weights need to be in range B_ONE <= W_x <= B_ONE * 50
+    //
+    // weight_x = ( value_x / total_pool_value ) * B_ONE * 48 + B_ONE
+    //          = (( value_x * B_ONE * 48) / total_pool_value) + B_ONE
     uint[] memory weights = new uint[](2);
-    weights[0] = totalValueInPool.div(balances[0]); // total value / num IDLE tokens
-    weights[1] = totalValueInPool.div(balances[1]); // total value / num WETH tokens
+    weights[0] = valueInWeth[0].mul(BalancerConstants.BONE * 48).div(totalValueInPool).add(BalancerConstants.BONE); // total value / num IDLE tokens
+    weights[1] = valueInWeth[1].mul(BalancerConstants.BONE * 48).div(totalValueInPool).add(BalancerConstants.BONE); // total value / num WETH tokens
 
     ICRPFactory.PoolParams memory params = ICRPFactory.PoolParams({
       poolTokenSymbol: "ISTT",
@@ -111,7 +125,7 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
       constituentTokens: tokens,
       tokenBalances: balances,
       tokenWeights: weights,
-      swapFee: 5 * 10**16 // .5% fee = 50000000000000000
+      swapFee: 5 * 10**15 // .5% fee = 50000000000000000
     });
 
     ICRPFactory.Rights memory rights = ICRPFactory.Rights({
@@ -139,39 +153,43 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
 
     idle.approve(crpaddress, balances[0]); // approve transfer of idle
     weth.approve(crpaddress, balances[1]); // approve transfer of idle
+  }
 
+
+  function bootstrap() external override onlyOwner {
     /**** CREATE POOL ****/
 
+    ConfigurableRightsPool crp = ConfigurableRightsPool(crpaddress);
     crp.createPool(
-        1000 * 10 ** 18, // mint 1000 shares
-        3 days, // minimumWeightChangeBlockPeriodParam
-        3 days  // addTokenTimeLockInBlocksParam
+      1000 * 10 ** 18, // mint 1000 shares
+      3 days, // minimumWeightChangeBlockPeriodParam
+      3 days  // addTokenTimeLockInBlocksParam
     );
 
-    // 
     uint[] memory finalWeights = new uint[](2);
-    finalWeights[0] = 9;
-    finalWeights[1] = 1;
+    finalWeights[0] = 45 * BalancerConstants.BONE; // 90 %
+    finalWeights[1] = 5  * BalancerConstants.BONE; // 10 %
 
     /**** CALL GRADUAL POOL WEIGHT UPDATE ****/
 
     crp.updateWeightsGradually(
       finalWeights,
       block.timestamp,
-      block.timestamp.add(90 days) // ~ 3 months
+      block.timestamp.add(90 days)  // ~ 3 months
     );
   }
 
-  function renounce(address _governanceAddress, address _feeCollectorAddress) external override onlyOwner {
+  function renounce() external override onlyOwner {
+    require(feeCollectorAddress != address(0), "Fee Collector Address is not set");
     ConfigurableRightsPool crp = ConfigurableRightsPool(crpaddress);
 
-    crp.whitelistLiquidityProvider(_governanceAddress);
-    crp.whitelistLiquidityProvider(_feeCollectorAddress);
+    crp.whitelistLiquidityProvider(governanceAddress);
+    crp.whitelistLiquidityProvider(feeCollectorAddress);
     crp.removeWhitelistedLiquidityProvider(address(this));
 
-    crp.setController(_governanceAddress);
+    crp.setController(governanceAddress);
 
-    crp.transfer(_feeCollectorAddress, crp.balanceOf(address(this)));
+    crp.transfer(feeCollectorAddress, crp.balanceOf(address(this)));
   }
 
   // withdraw arbitrary token to address. Called by admin, if any remaining tokens on contract
