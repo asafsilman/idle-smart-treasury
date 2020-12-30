@@ -2,14 +2,13 @@
 
 pragma solidity = 0.6.6;
 
-import '@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol';
-
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/EnumerableSet.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 
+import '@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol';
 
 import "./interfaces/IFeeCollector.sol";
 import "./interfaces/BalancerInterface.sol";
