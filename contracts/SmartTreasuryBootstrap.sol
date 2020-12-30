@@ -112,10 +112,13 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
 
     uint totalValueInPool = valueInWeth[0].add(valueInWeth[1]);
 
-    // Weights need to be in range B_ONE <= W_x <= B_ONE * 50
+    // Sum of weights need to be in range B_ONE <= W_x <= B_ONE * 50
+    //
+    // The magic number 48 is used because this is 50 - (Number of Tokens In Pool) = 48
     //
     // weight_x = ( value_x / total_pool_value ) * B_ONE * 48 + B_ONE
     //          = (( value_x * B_ONE * 48) / total_pool_value) + B_ONE
+    //
     uint[] memory weights = new uint[](2);
     weights[0] = valueInWeth[0].mul(BalancerConstants.BONE * 48).div(totalValueInPool).add(BalancerConstants.BONE); // total value / num IDLE tokens
     weights[1] = valueInWeth[1].mul(BalancerConstants.BONE * 48).div(totalValueInPool).add(BalancerConstants.BONE); // total value / num WETH tokens
