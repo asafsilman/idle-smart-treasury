@@ -91,6 +91,8 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
   }
 
   function initialise() external override onlyOwner {
+    require(crpaddress==address(0), "Cannot initialise if CRP already exists");
+    
     uint idleBalance = idle.balanceOf(address(this));
     uint wethBalance = weth.balanceOf(address(this));
 
@@ -125,7 +127,7 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
       constituentTokens: tokens,
       tokenBalances: balances,
       tokenWeights: weights,
-      swapFee: 5 * 10**15 // .5% fee = 50000000000000000
+      swapFee: 5 * 10**15 // .5% fee = 5000000000000000
     });
 
     ICRPFactory.Rights memory rights = ICRPFactory.Rights({
@@ -151,15 +153,17 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
 
     crpaddress = address(crp);
 
-    idle.approve(crpaddress, balances[0]); // approve transfer of idle
-    weth.approve(crpaddress, balances[1]); // approve transfer of idle
+    idle.safeApprove(crpaddress, balances[0]); // approve transfer of idle
+    weth.safeApprove(crpaddress, balances[1]); // approve transfer of idle
   }
 
 
   function bootstrap() external override onlyOwner {
-    /**** CREATE POOL ****/
-
+    require(crpaddress!=address(0), "Cannot bootstrap if CRP does not exist");
+    
     ConfigurableRightsPool crp = ConfigurableRightsPool(crpaddress);
+
+    /**** CREATE POOL ****/
     crp.createPool(
       1000 * 10 ** 18, // mint 1000 shares
       3 days, // minimumWeightChangeBlockPeriodParam
@@ -181,7 +185,11 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
 
   function renounce() external override onlyOwner {
     require(feeCollectorAddress != address(0), "Fee Collector Address is not set");
+    require(crpaddress != address(0), "Cannot renounce if CRP does not exist");
+
     ConfigurableRightsPool crp = ConfigurableRightsPool(crpaddress);
+    
+    require(address(crp.bPool()) != address(0), "Cannot renounce if bPool does not exist");
 
     crp.whitelistLiquidityProvider(governanceAddress);
     crp.whitelistLiquidityProvider(feeCollectorAddress);
@@ -189,7 +197,8 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
 
     crp.setController(governanceAddress);
 
-    crp.transfer(feeCollectorAddress, crp.balanceOf(address(this)));
+    // transfer using safe transfer
+    IERC20(crpaddress).safeTransfer(feeCollectorAddress, crp.balanceOf(address(this)));
   }
 
   // withdraw arbitrary token to address. Called by admin, if any remaining tokens on contract
@@ -224,4 +233,6 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
   }
 
   function _getCRPAddress() external view returns (address) { return crpaddress; }
+
+  function _getCRPBPoolAddress() external view returns (address) {return address(ConfigurableRightsPool(crpaddress).bPool());}
 }

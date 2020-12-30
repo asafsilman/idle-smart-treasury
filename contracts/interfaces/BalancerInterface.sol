@@ -107,6 +107,7 @@ interface ConfigurableRightsPool {
 
   function transfer(address recipient, uint amount) external returns (bool);
   function balanceOf(address account) external returns (uint);
+  function bPool() external view returns (BPool);
 }
 
 interface IBFactory {
