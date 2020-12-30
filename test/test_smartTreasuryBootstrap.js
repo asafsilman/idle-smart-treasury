@@ -9,12 +9,16 @@ const mockWETH = artifacts.require('WETHMock')
 const mockDAI = artifacts.require('DAIMock')
 const mockUSDC = artifacts.require('USDCMock')
 
+const CRP = artifacts.require('ConfigurableRightsPool')
+
 const addresses = require("../migrations/addresses").development;
 
 const BNify = n => new BN(String(n));
 
 contract('SmartTreasuryBootstrap', async accounts => {
   beforeEach(async function() {
+    this.zero_address = "0x0000000000000000000000000000000000000000";
+
     this.mockWETH = await mockWETH.new();
     this.mockDAI  = await mockDAI.new(); // 600 dai == 1 WETH
     this.mockUSDC  = await mockUSDC.new(); // 600 usdc == 1 WETH
@@ -80,13 +84,34 @@ contract('SmartTreasuryBootstrap', async accounts => {
   })
 
   it('Should bootstrap', async function() {
-    await this.smartTreasuryBootstrapInstance.swap();
+    await this.smartTreasuryBootstrapInstance.swap(); // swap all deposit tokens to WETH
 
-    await this.smartTreasuryBootstrapInstance._setIDLEPrice(web3.utils.toWei('135'));
+    await this.smartTreasuryBootstrapInstance._setIDLEPrice(web3.utils.toWei('135')); // Set price, this is used for setting initial weights
     await this.smartTreasuryBootstrapInstance.initialise();
     await this.smartTreasuryBootstrapInstance.bootstrap();
 
     let crpAddress = await this.smartTreasuryBootstrapInstance._getCRPAddress.call();
-    console.log(crpAddress);
+    let bPool = await this.smartTreasuryBootstrapInstance._getCRPBPoolAddress.call();
+    
+    expect(crpAddress).to.not.equal(this.zero_address);
+    expect(bPool).to.not.equal(this.zero_address);
+  })
+
+  it('Should renounce ownership to governance', async function() {
+    await this.smartTreasuryBootstrapInstance.swap(); // swap all deposit tokens to WETH
+
+    await this.smartTreasuryBootstrapInstance._setIDLEPrice(web3.utils.toWei('135')); // Set price, this is used for setting initial weights
+    await this.smartTreasuryBootstrapInstance.initialise();
+    await this.smartTreasuryBootstrapInstance.bootstrap();
+    
+    let crpAddress = await this.smartTreasuryBootstrapInstance._getCRPAddress.call();
+    let crpInstance = await CRP.at(crpAddress);
+
+    let oldController = await crpInstance.getController()
+    await this.smartTreasuryBootstrapInstance.renounce(); // renounce ownership
+    let newController = await crpInstance.getController()
+
+    console.log(oldController)
+    console.log(newController)
   })
 })

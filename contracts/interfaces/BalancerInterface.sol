@@ -103,6 +103,7 @@ interface ConfigurableRightsPool {
   
   function whitelistLiquidityProvider(address provider) external;
   function removeWhitelistedLiquidityProvider(address provider) external;
+  function getController() external view returns (address);
   function setController(address newOwner) external;
 
   function transfer(address recipient, uint amount) external returns (bool);
