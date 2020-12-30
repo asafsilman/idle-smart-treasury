@@ -111,6 +111,7 @@ contract('SmartTreasuryBootstrap', async accounts => {
     await this.smartTreasuryBootstrapInstance.renounce(); // renounce ownership
     let newController = await crpInstance.getController()
 
+    // add checks for whitelist
     console.log(oldController)
     console.log(newController)
   })

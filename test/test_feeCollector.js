@@ -90,7 +90,7 @@ contract("FeeCollector", async accounts => {
     assert.equal(smartTreasuryAddress.toLowerCase(), this.balancerPool.address.toLowerCase());
   })
 
-  it("Should deposit tokens", async function() {
+  it("Should deposit tokens with split set to 50/50", async function() {
     let instance = this.feeCollectorInstance;
     await instance.setSplitRatio(this.ratio_one_pecrent.mul(BNify(50)), {from: accounts[0]}) // set split 50/50
     await instance.addTokenToDepositList(this.mockDAI.address, {from: accounts[0]}); // whitelist dai
