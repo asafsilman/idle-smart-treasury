@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 pragma solidity = 0.6.6;
+pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/EnumerableSet.sol";
@@ -23,8 +24,8 @@ contract FeeCollector is IFeeCollector, AccessControl {
   using SafeMath for uint256;
   using SafeERC20 for IERC20;
 
-  address feeTreasuryAddress;
-  address smartTreasuryAddress;
+  address private feeTreasuryAddress;
+  address private smartTreasuryAddress;
 
   IUniswapV2Router02 private uniswapRouterV2;
 
@@ -34,10 +35,10 @@ contract FeeCollector is IFeeCollector, AccessControl {
   // Need to use openzeppelin enumerableset
   EnumerableSet.AddressSet private depositTokens;
 
-  uint256 ratio; // 100000 = 100%. Ratio sent to smartTreasury vs feeTreasury
+  uint256 private ratio; // 100000 = 100%. Ratio sent to smartTreasury vs feeTreasury
 
-  uint256 FULL_ALLOC = 100000;
-  uint256 MAX_NUM_FEE_TOKENS = 15; // Cap max tokens to 15
+  uint256 private FULL_ALLOC = 100000;
+  uint256 private MAX_NUM_FEE_TOKENS = 15; // Cap max tokens to 15
   bytes32 public constant WHITELISTED = keccak256("WHITELISTED_ROLE");
 
   modifier smartTreasurySet {
@@ -95,6 +96,7 @@ contract FeeCollector is IFeeCollector, AccessControl {
    */
   function deposit() public override smartTreasurySet onlyWhitelisted {
     uint counter = depositTokens.length();
+    
     // iterate through all registered deposit tokens
     for (uint index = 0; index < counter; index++) {
       address _tokenAddress = depositTokens.at(index);
@@ -113,7 +115,7 @@ contract FeeCollector is IFeeCollector, AccessControl {
         }
 
         if (_feeToSmartTreasury > 0) {
-          // create simle route; token->WETH
+          // create simple route; token->WETH
           address[] memory path = new address[](2);
           path[0] = _tokenAddress;
           path[1] = weth;
@@ -133,10 +135,9 @@ contract FeeCollector is IFeeCollector, AccessControl {
     // deposit all swapped WETH into balancer pool
     uint256 wethBalance = wethInterface.balanceOf(address(this));
     if (wethBalance > 0){
-      // add to bpool
-      BPool smartTreasuryBPool = BPool(smartTreasuryAddress);
+      ConfigurableRightsPool crp = ConfigurableRightsPool(smartTreasuryAddress);
 
-      smartTreasuryBPool.joinswapExternAmountIn(weth, wethBalance, 0);
+      crp.joinswapExternAmountIn(weth, wethBalance, 0);
     }
   }
 
@@ -164,7 +165,7 @@ contract FeeCollector is IFeeCollector, AccessControl {
   @param _feeTreasuryAddress the new fee treasury address.
    */
   function setFeeTreasuryAddress(address _feeTreasuryAddress) external override onlyAdmin {
-    require(_feeTreasuryAddress!=address(0), "Can set fee treasury address as the 0 address");
+    require(_feeTreasuryAddress!=address(0), "Cannot set fee treasury address as the 0 address");
 
     feeTreasuryAddress = _feeTreasuryAddress;
   }
@@ -178,7 +179,7 @@ contract FeeCollector is IFeeCollector, AccessControl {
   @param _smartTreasuryAddress The new smart treasury address
    */
   function setSmartTreasuryAddress(address _smartTreasuryAddress) external override onlyAdmin {
-    require(_smartTreasuryAddress!=address(0), "Can set smartTreasury address as the 0 address");
+    require(_smartTreasuryAddress!=address(0), "Cannot set smart treasury address as the 0 address");
 
     // When contract is initialised, the smart treasury address is not yet set
     // Only call change allowance to 0 if previous smartTreasury was not the 0 address.
@@ -259,12 +260,13 @@ contract FeeCollector is IFeeCollector, AccessControl {
   */
   function withdrawUnderlying(address _toAddress, uint256 _amount) external override smartTreasurySet onlyAdmin{
     // TODO, does this address need to be approved ??
-    BPool smartTreasuryBPool = BPool(smartTreasuryAddress);
+    ConfigurableRightsPool crp = ConfigurableRightsPool(smartTreasuryAddress);
+    BPool smartTreasuryBPool = crp.bPool();
 
     uint numTokensInPool = smartTreasuryBPool.getNumTokens();
     uint[] memory minTokens = new uint[](numTokensInPool); 
 
-    smartTreasuryBPool.exitPool(_amount, minTokens);
+    crp.exitPool(_amount, minTokens);
 
     address[] memory treasuryTokens = smartTreasuryBPool.getCurrentTokens();
 

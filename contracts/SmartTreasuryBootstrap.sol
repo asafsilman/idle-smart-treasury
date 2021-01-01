@@ -18,6 +18,7 @@ import "./interfaces/ISmartTreasuryBootstrap.sol";
 import "./interfaces/BalancerInterface.sol";
 
 import "./libraries/BalancerConstants.sol";
+
 /**
 @author Asaf Silman
 @notice Smart contract for initialising the idle smart treasury
@@ -170,7 +171,7 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
       canChangeWeights:   true,
       canAddRemoveTokens: true,
       canWhitelistLPs:    true,
-      canChangeCap:       true
+      canChangeCap:       false
     });
     
     /**** DEPLOY POOL ****/

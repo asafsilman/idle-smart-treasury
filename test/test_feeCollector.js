@@ -4,8 +4,9 @@ const { expect } = require('chai');
 
 const FeeCollector = artifacts.require('FeeCollector')
 const IUniswapV2Router02 = artifacts.require('IUniswapV2Router02')
-const IBFactory = artifacts.require('IBFactory')
+const ICRPFactory = artifacts.require('ICRPFactory')
 const BPool = artifacts.require('BPool')
+const ConfigurableRightsPool = artifacts.require('ConfigurableRightsPool')
 const mockIDLE = artifacts.require('IDLEMock')
 const mockWETH = artifacts.require('WETHMock')
 const mockDAI = artifacts.require('DAIMock')
@@ -42,31 +43,46 @@ contract("FeeCollector", async accounts => {
     )
 
     // initialise a balancer pool 90/10 IDLE/ETH
-    let balancerFactoryInstance = await IBFactory.at(addresses.balancerCoreFactory)
-    let newBPool = await balancerFactoryInstance.newBPool()
-    let newBPoolAddress = newBPool.logs[0].args.pool
-
-    // Get new bpool
-    this.balancerPool = await BPool.at(newBPoolAddress)
-    this.mockWETH.approve(this.balancerPool.address, constants.MAX_UINT256)
-    this.mockIDLE.approve(this.balancerPool.address, constants.MAX_UINT256)
-
-    // deposit 130,000 IDLE into pool == 90% share
-    // using a WETH price of 1 WETH = 135 IDLE
-    // therefore ETH deposit = 130,000 * 10% / 135 = 96.3
-    this.balancerPool.bind(this.mockWETH.address, web3.utils.toWei('96.3'), web3.utils.toWei('1'))
-    this.balancerPool.bind(this.mockIDLE.address, web3.utils.toWei('130000'), web3.utils.toWei('9'))
-
-    // must finalize a bpool to call joinswapExternAmountIn
-    // for the smart treasury this is not needed
-    this.balancerPool.finalize()
+    let poolParams = {
+      poolTokenSymbol: 'ISTT',
+      poolTokenName: 'Idle Smart Treasury Token',
+      constituentTokens: [this.mockIDLE.address, this.mockWETH.address],
+      tokenBalances: [web3.utils.toWei('130000'), web3.utils.toWei('100')],
+      tokenWeights: [web3.utils.toWei('45'), web3.utils.toWei('5')],
+      swapFee: web3.utils.toWei('0.005') // 0.5%
+    }
     
+    let permissions = {
+      canPauseSwapping: true,
+      canChangeSwapFee: true,
+      canChangeWeights: true,
+      canAddRemoveTokens: true,
+      canWhitelistLPs: true,
+      canChangeCap: false
+    };
+
+    let CRPFactoryInstance = await ICRPFactory.at(addresses.balancerCRPFactory)
+    let newCRP = await CRPFactoryInstance.newCrp(addresses.balancerCoreFactory, poolParams, permissions)
+    let newCRPAddress = newCRP.logs[0].args.pool
+
+    // // Get new bpool
+    this.crp = await ConfigurableRightsPool.at(newCRPAddress)
+    this.mockWETH.approve(this.crp.address, constants.MAX_UINT256)
+    this.mockIDLE.approve(this.crp.address, constants.MAX_UINT256)
+
+    await this.crp.createPool(web3.utils.toWei('1000'), 10, 10);
+    var bPoolAddress = await this.crp.bPool.call();
+    this.bPool = await BPool.at(bPoolAddress)
+
     this.feeCollectorInstance = await FeeCollector.new(
       addresses.uniswapRouterAddress,
       this.mockWETH.address,
       addresses.feeTreasuryAddress,
       BNify('0')
     )
+    
+    // Whitelist feeCollector as liquidity provider
+    await this.crp.whitelistLiquidityProvider(this.feeCollectorInstance.address);
   })
     
   it("Should correctly deploy", async function() {
@@ -91,18 +107,18 @@ contract("FeeCollector", async accounts => {
     assert.isFalse(randomAddressAdmin, "Random account should not be admin")
 
     assert.equal(feeTreasuryAddress.toLowerCase(), addresses.feeTreasuryAddress.toLowerCase())
-    assert.equal(smartTreasuryAddress.toLowerCase(), this.balancerPool.address.toLowerCase())
+    assert.equal(smartTreasuryAddress.toLowerCase(), this.zeroAddress) // should be zero address on deploy
   })
 
   it("Should deposit tokens with split set to 50/50", async function() {
     let instance = this.feeCollectorInstance
 
-    await instance.setSmartTreasuryAddress(this.balancerPool.address)
+    await instance.setSmartTreasuryAddress(this.crp.address)
     await instance.setSplitRatio(this.ratio_one_pecrent.mul(BNify('50')), {from: accounts[0]}) // set split 50/50
     await instance.registerTokenToDepositList(this.mockDAI.address, {from: accounts[0]}) // whitelist dai
     
     let feeTreasuryDaiBalanceBefore = BNify(await this.mockDAI.balanceOf.call(addresses.feeTreasuryAddress))
-    let smartTreasuryWethBalanceBefore = BNify(await this.mockWETH.balanceOf.call(this.balancerPool.address))
+    let smartTreasuryWethBalanceBefore = BNify(await this.mockWETH.balanceOf.call(this.crp.address))
     // let smartTreasuryWethBalanceBefore = BNify(await wethContract.methods.balanceOf(meta.address).call()); 
     
     let depositAmount = web3.utils.toWei("500")
@@ -110,10 +126,13 @@ contract("FeeCollector", async accounts => {
     await instance.deposit({from: accounts[0]}) // call deposit
     
     let feeTreasuryDaiBalanceAfter = BNify(await this.mockDAI.balanceOf.call(addresses.feeTreasuryAddress))
-    let smartTreasuryWethBalanceAfter = BNify(await this.mockWETH.balanceOf.call(this.balancerPool.address))     
+    let smartTreasuryWethBalanceAfter = BNify(await this.mockWETH.balanceOf.call(this.bPool.address))     
     
+    let balancerPoolTokenBalance = BNify(await this.crp.balanceOf.call(instance.address));
+
     expect(feeTreasuryDaiBalanceAfter.sub(feeTreasuryDaiBalanceBefore)).to.be.bignumber.equal(BNify(depositAmount).div(BNify('2')))
     expect(smartTreasuryWethBalanceAfter.sub(smartTreasuryWethBalanceBefore)).to.be.bignumber.that.is.greaterThan(BNify('0'))
+    expect(balancerPoolTokenBalance).to.be.bignumber.that.is.greaterThan(BNify('0'))
   })
 
   it("Should add & remove a token from the deposit list", async function() {
@@ -136,39 +155,74 @@ contract("FeeCollector", async accounts => {
   it("Should set fee treasury address", async function() {
     let instance = this.feeCollectorInstance
 
-    let initialFeeTreasuryAddress = await instance.getFeeTreasuryAddress.call().toLowerCase()
-    expect(initialFeeTreasuryAddress).to.be.equal(addresses.feeTreasuryAddress.toLowerCase())
+    let initialFeeTreasuryAddress = await instance.getFeeTreasuryAddress.call()
+    expect(initialFeeTreasuryAddress.toLowerCase()).to.be.equal(addresses.feeTreasuryAddress.toLowerCase())
 
-    await expectRevert(instance.setFeeTreasuryAddress(this.zeroAddress), "Expect transaction to revert when setting fee treasury as 0 address")
+    await expectRevert(instance.setFeeTreasuryAddress(this.zeroAddress), "Cannot set fee treasury address as the 0 address")
     await instance.setFeeTreasuryAddress(this.nonZeroAddress)
 
-    let newFeeTreasuryAddress = await instance.getFeeTreasuryAddress.call().toLowerCase()
-    expect(newFeeTreasuryAddress).to.be.equal(this.nonZeroAddress)
+    let newFeeTreasuryAddress = await instance.getFeeTreasuryAddress.call()
+    expect(newFeeTreasuryAddress.toLowerCase()).to.be.equal(this.nonZeroAddress)
   })
 
-  it("Should set fee treasury address", async function() {
+  it("Should set smart treasury address", async function() {
     let instance = this.feeCollectorInstance
 
-    let initialSmartTreasuryAddress = await instance.getSmartTreasuryAddress.call().toLowerCase()
-    expect(initialSmartTreasuryAddress).to.be.equal(addresses.zeroAddress) // initially this address will not be set
+    let initialSmartTreasuryAddress = await instance.getSmartTreasuryAddress.call()
+    expect(initialSmartTreasuryAddress.toLowerCase()).to.be.equal(this.zeroAddress) // initially this address will not be set
 
-    await expectRevert(instance.setSmartTreasuryAddress(this.zeroAddress), "Expect transaction to revert when setting fee treasury as 0 address")
-    await instance.setFeeTreasuryAddress(this.nonZeroAddress)
+    await expectRevert(instance.setSmartTreasuryAddress(this.zeroAddress), "Cannot set smart treasury address as the 0 address")
+    await instance.setSmartTreasuryAddress(this.nonZeroAddress)
 
-    let newFeeTreasuryAddress = await instance.getSmartTreasuryAddress.call().toLowerCase()
-    expect(newFeeTreasuryAddress).to.be.equal(this.nonZeroAddress)
+    let newFeeTreasuryAddress = await instance.getSmartTreasuryAddress.call()
+    expect(newFeeTreasuryAddress.toLowerCase()).to.be.equal(this.nonZeroAddress)
 
     wethAllowance = await this.mockWETH.allowance(instance.address, this.nonZeroAddress)
-    expect(wethAllowance).to.be.bignumber.equal(constance.MAX_INT256)
+    expect(wethAllowance).to.be.bignumber.equal(constants.MAX_UINT256)
 
-    await instance.setFeeTreasuryAddress(this.nonZeroAddress2)
+    await instance.setSmartTreasuryAddress(this.nonZeroAddress2)
     wethAllowanceAfter = await this.mockWETH.allowance(instance.address, this.nonZeroAddress)
-    expect(wethAllowance).to.be.bignumber.equal(BNify('0'))
+    expect(wethAllowanceAfter).to.be.bignumber.equal(BNify('0'))
   })
 
-  it("Should whitelist address", async function() {
+  it("Should add & remove whitelist address", async function() {
     let instance = this.feeCollectorInstance
 
-    await instance.isAddressWhitelisted(this.nonZeroAddress)
+    let before = await instance.isAddressWhitelisted(this.nonZeroAddress)
+    expect(before, "Address should not be whitelisted initially").to.be.false
+
+    await instance.addAddressToWhiteList(this.nonZeroAddress, {from: accounts[0]})
+    let after = await instance.isAddressWhitelisted(this.nonZeroAddress)
+    expect(after, "Address should now be whitelisted").to.be.true
+
+    await instance.removeAddressFromWhiteList(this.nonZeroAddress, {from: accounts[0]})
+    let final = await instance.isAddressWhitelisted(this.nonZeroAddress)
+    expect(final, "Address should not be whitelisted").to.be.false
+  })
+
+  it("Should withdraw underlying deposit token", async function() {
+    let instance = this.feeCollectorInstance
+
+    await instance.setSmartTreasuryAddress(this.crp.address)
+    await instance.setSplitRatio(this.ratio_one_pecrent.mul(BNify('100')), {from: accounts[0]}) // set split to 100% smart tresury
+    await instance.registerTokenToDepositList(this.mockDAI.address, {from: accounts[0]}) // whitelist dai
+
+    let depositAmount = web3.utils.toWei("500")
+    await this.mockDAI.transfer(instance.address, depositAmount, {from: accounts[0]}) // 500 DAI
+    await instance.deposit({from: accounts[0]}) // call deposit
+
+    let balancerPoolTokenBalanceBefore = BNify(await this.bPool.balanceOf.call(instance.address));
+    
+    expect(balancerPoolTokenBalanceBefore).to.be.bignumber.that.is.greaterThan(BNify('0'))
+
+    await instance.withdrawUnderlying(this.nonZeroAddress, balancerPoolTokenBalanceBefore.div(BNify("2")))
+
+    let balancerPoolTokenBalanceAfter = BNify(await this.bPool.balanceOf.call(this.nonZeroAddress));
+    expect(balancerPoolTokenBalanceAfter).to.be.bignumber.that.is.equal(balancerPoolTokenBalanceBefore.div(BNify("2")))
+
+    let daiBalanceWithdrawn = await this.mockDAI.balanceOf.call(this.nonZeroAddress)
+    console.log(daiBalanceWithdrawn)
+    expect(daiBalance).to.be.bignumber.that.is.greaterThan(BNify('0'))
+
   })
 })

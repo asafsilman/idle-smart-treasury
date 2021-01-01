@@ -17,7 +17,7 @@ const BNify = n => new BN(String(n));
 
 contract('SmartTreasuryBootstrap', async accounts => {
   beforeEach(async function() {
-    this.zero_address = "0x0000000000000000000000000000000000000000";
+    this.zeroAddress = "0x0000000000000000000000000000000000000000";
 
     this.mockWETH = await mockWETH.new();
     this.mockDAI  = await mockDAI.new(); // 600 dai == 1 WETH
@@ -92,8 +92,8 @@ contract('SmartTreasuryBootstrap', async accounts => {
     let crpAddress = await this.smartTreasuryBootstrapInstance._getCRPAddress.call();
     let bPool = await this.smartTreasuryBootstrapInstance._getCRPBPoolAddress.call();
     
-    expect(crpAddress).to.not.equal(this.zero_address);
-    expect(bPool).to.not.equal(this.zero_address);
+    expect(crpAddress).to.not.equal(this.zeroAddress);
+    expect(bPool).to.not.equal(this.zeroAddress);
   })
 
   it('Should renounce ownership to governance', async function() {

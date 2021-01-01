@@ -4,6 +4,32 @@ pragma solidity =0.6.6;
 pragma experimental ABIEncoderV2;
 
 interface BPool {
+  event LOG_SWAP(
+    address indexed caller,
+    address indexed tokenIn,
+    address indexed tokenOut,
+    uint256         tokenAmountIn,
+    uint256         tokenAmountOut
+  );
+
+  event LOG_JOIN(
+    address indexed caller,
+    address indexed tokenIn,
+    uint256         tokenAmountIn
+  );
+
+  event LOG_EXIT(
+    address indexed caller,
+    address indexed tokenOut,
+    uint256         tokenAmountOut
+  );
+
+  event LOG_CALL(
+    bytes4  indexed sig,
+    address indexed caller,
+    bytes           data
+  ) anonymous;
+
   function isPublicSwap() external view returns (bool);
   function isFinalized() external view returns (bool);
   function isBound(address t) external view returns (bool);
@@ -83,6 +109,36 @@ interface BPool {
 }
 
 interface ConfigurableRightsPool {
+  event LogCall(
+    bytes4  indexed sig,
+    address indexed caller,
+    bytes data
+  ) anonymous;
+
+  event LogJoin(
+    address indexed caller,
+    address indexed tokenIn,
+    uint tokenAmountIn
+  );
+
+  event LogExit(
+    address indexed caller,
+    address indexed tokenOut,
+    uint tokenAmountOut
+  );
+
+  event CapChanged(
+    address indexed caller,
+    uint oldCap,
+    uint newCap
+  );
+    
+  event NewTokenCommitted(
+    address indexed token,
+    address indexed pool,
+    address indexed caller
+  );
+
   function createPool(
     uint initialSupply
     // uint minimumWeightChangeBlockPeriodParam,
@@ -96,10 +152,16 @@ interface ConfigurableRightsPool {
   ) external;
 
   function updateWeightsGradually(
-        uint[] calldata newWeights,
-        uint startBlock,
-        uint endBlock
-    ) external;
+    uint[] calldata newWeights,
+    uint startBlock,
+    uint endBlock
+  ) external;
+
+  function joinswapExternAmountIn(
+    address tokenIn,
+    uint tokenAmountIn,
+    uint minPoolAmountOut
+  ) external;
   
   function whitelistLiquidityProvider(address provider) external;
   function removeWhitelistedLiquidityProvider(address provider) external;
@@ -129,6 +191,11 @@ interface IBFactory {
 }
 
 interface ICRPFactory {
+  event LogNewCrp(
+    address indexed caller,
+    address indexed pool
+  );
+
   struct PoolParams {
     // Balancer Pool Token (representing shares of the pool)
     string poolTokenSymbol;
