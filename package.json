@@ -19,6 +19,7 @@
   "devDependencies": {
     "@openzeppelin/test-helpers": "^0.5.10",
     "chai-bn": "^0.2.1",
+    "solidity-coverage": "^0.7.13",
     "truffle-flattener": "^1.5.0"
   },
   "scripts": {

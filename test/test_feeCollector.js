@@ -61,6 +61,7 @@ contract("FeeCollector", async accounts => {
       addresses.uniswapRouterAddress,
       this.mockWETH.address,
       addresses.feeTreasuryAddress,
+      BNify('0')
     )
 
     await this.feeCollectorInstance.setSmartTreasuryAddress(newBPoolAddress);
@@ -93,7 +94,7 @@ contract("FeeCollector", async accounts => {
 
   it("Should deposit tokens with split set to 50/50", async function() {
     let instance = this.feeCollectorInstance;
-    await instance.setSplitRatio(this.ratio_one_pecrent.mul(BNify(50)), {from: accounts[0]}) // set split 50/50
+    await instance.setSplitRatio(this.ratio_one_pecrent.mul(BNify('50')), {from: accounts[0]}) // set split 50/50
     await instance.registerTokenToDepositList(this.mockDAI.address, {from: accounts[0]}); // whitelist dai
     
     let feeTreasuryDaiBalanceBefore = BNify(await this.mockDAI.balanceOf.call(addresses.feeTreasuryAddress));
