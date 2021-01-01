@@ -52,7 +52,6 @@ contract('SmartTreasuryBootstrap', async accounts => {
     this.smartTreasuryBootstrapInstance = await SmartTreasuryBootstrap.new(
       addresses.balancerCoreFactory,
       addresses.balancerCRPFactory,
-      addresses.uniswapFactory,
       addresses.uniswapRouterAddress,
       this.mockIDLE.address,
       this.mockWETH.address,
@@ -60,8 +59,8 @@ contract('SmartTreasuryBootstrap', async accounts => {
       addresses.governanceAddress // set the feecollector as governance for the time being
     )
 
-    await this.smartTreasuryBootstrapInstance._addTokenToDepositList(this.mockDAI.address)
-    await this.smartTreasuryBootstrapInstance._addTokenToDepositList(this.mockUSDC.address)
+    await this.smartTreasuryBootstrapInstance._registerTokenToDepositList(this.mockDAI.address)
+    await this.smartTreasuryBootstrapInstance._registerTokenToDepositList(this.mockUSDC.address)
 
     // initialise bootstrap contract with 10000 USDC and DAI
     await this.mockDAI.transfer(this.smartTreasuryBootstrapInstance.address, web3.utils.toWei("10000"));

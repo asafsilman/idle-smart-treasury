@@ -18,17 +18,18 @@ import "./interfaces/ISmartTreasuryBootstrap.sol";
 import "./interfaces/BalancerInterface.sol";
 
 import "./libraries/BalancerConstants.sol";
-
+/**
+@author Asaf Silman
+@notice Smart contract for initialising the idle smart treasury
+ */
 contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
   using EnumerableSet for EnumerableSet.AddressSet;
   using SafeERC20 for IERC20;
   using SafeMath for uint256;
 
-  // using UniswapV2Library;
-
   address private crpaddress;
 
-  uint private idlePerWeth;
+  uint private idlePerWeth; // internal price oracle for IDLE
 
   IBFactory private balancer_bfactory;
   ICRPFactory private balancer_crpfactory;
@@ -44,29 +45,53 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
   address governanceAddress;
   address feeCollectorAddress;
 
+  /**
+  @author Asaf Silman
+  @notice Initialises the bootstrap contract.
+  @dev Configures balancer factories
+  @dev Configures uniswap router
+  @dev Configures IDLE and WETH token
+  @param _balancerBFactory Balancer core factory
+  @param _balancerBFactory Balancer configurable rights pool (CRP) factory
+  @param _uniswapRouter Uniswap router address
+  @param _idle IDLE governance token address
+  @param _weth WETH token address
+  @param _governanceAddress address of IDLE governor
+  @param _feeCollectorAddress address of IDLE fee collector
+   */
   constructor (
     address _balancerBFactory,
     address _balancerCRPFactory,
-    address _uniswapFactory,
     address _uniswapRouter,
     address _idle,
     address _weth,
     address _governanceAddress,
     address _feeCollectorAddress
   ) public {
+
+    // initialise balancer factories
     balancer_bfactory = IBFactory(_balancerBFactory);
     balancer_crpfactory = ICRPFactory(_balancerCRPFactory);
 
-    uniswapFactory = IUniswapV2Factory(_uniswapFactory);
-    uniswapRouterV2 = IUniswapV2Router02(_uniswapRouter); // configure uniswap router
+    // configure uniswap router
+    uniswapRouterV2 = IUniswapV2Router02(_uniswapRouter);
 
+    // configure tokens
     idle = IERC20(_idle);
     weth = IERC20(_weth);
 
+    // configure network addresses
     governanceAddress = _governanceAddress;
     feeCollectorAddress = _feeCollectorAddress;
   }
 
+  /**
+  @author Asaf Silman
+  @notice Converts all tokens in depositToken enumerable set to WETH.
+  @dev Converts tokens using uniswap simple path. E.g. token -> WETH.
+  @dev This should be called after the governance proposal has transfered funds to bootstrapping address
+  @dev After this has been called, `swap()` should be called.
+   */
   function swap() external override onlyOwner {
     uint counter = depositTokens.length();
     for (uint index = 0; index < counter; index++) {
@@ -89,6 +114,13 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
     }
   }
 
+  /**
+  @author Asaf Silman
+  @notice Initialises the smart treasury with bootstrapping parameters
+  @notice Calculated initial weights based on total value of IDLE and WETH.
+  @dev This function should be called after all fees have been swapped, by calling `swap()`
+  @dev After this has been called, `bootstrap()` should be called.
+   */
   function initialise() external override onlyOwner {
     require(crpaddress==address(0), "Cannot initialise if CRP already exists");
     
@@ -106,11 +138,11 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
     balances[0] = idleBalance;
     balances[1] = wethBalance;
 
-    uint[] memory valueInWeth = new uint[](2);
-    valueInWeth[0] = balances[0].mul(10**18).div(idlePerWeth);
-    valueInWeth[1] = balances[1];
+    
+    uint idleValueInWeth = balances[0].mul(10**18).div(idlePerWeth);
+    uint wethValue = balances[1];
 
-    uint totalValueInPool = valueInWeth[0].add(valueInWeth[1]);
+    uint totalValueInPool = idleValueInWeth.add(wethValue); // expressed in WETH
 
     // Sum of weights need to be in range B_ONE <= W_x <= B_ONE * 50
     //
@@ -120,8 +152,8 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
     //          = (( value_x * B_ONE * 48) / total_pool_value) + B_ONE
     //
     uint[] memory weights = new uint[](2);
-    weights[0] = valueInWeth[0].mul(BalancerConstants.BONE * 48).div(totalValueInPool).add(BalancerConstants.BONE); // total value / num IDLE tokens
-    weights[1] = valueInWeth[1].mul(BalancerConstants.BONE * 48).div(totalValueInPool).add(BalancerConstants.BONE); // total value / num WETH tokens
+    weights[0] = idleValueInWeth.mul(BalancerConstants.BONE * 48).div(totalValueInPool).add(BalancerConstants.BONE); // total value / num IDLE tokens
+    weights[1] = wethValue.mul(BalancerConstants.BONE * 48).div(totalValueInPool).add(BalancerConstants.BONE); // total value / num WETH tokens
 
     ICRPFactory.PoolParams memory params = ICRPFactory.PoolParams({
       poolTokenSymbol: "ISTT",
@@ -152,6 +184,8 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
     // A balancer pool with canWhitelistLPs does not initially whitelist the controller
     // This must be manually set
     crp.whitelistLiquidityProvider(address(this));
+    crp.whitelistLiquidityProvider(governanceAddress);
+    crp.whitelistLiquidityProvider(feeCollectorAddress);
 
     crpaddress = address(crp);
 
@@ -159,7 +193,12 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
     weth.safeApprove(crpaddress, balances[1]); // approve transfer of idle
   }
 
-
+  /**
+  @author Asaf Silman
+  @notice Creates the smart treasury, pulls underlying funds, and mints 1000 liquidity tokens
+  @notice calls updateWeightsGradually to being updating the token weights to the desired initial distribution.
+  @dev Can only be called after initialise has been called
+   */
   function bootstrap() external override onlyOwner {
     require(crpaddress!=address(0), "Cannot bootstrap if CRP does not exist");
     
@@ -185,6 +224,11 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
     );
   }
 
+  /**
+  @author Asaf Silman
+  @notice Renounces ownership of the smart treasury from this contract to idle governance
+  @notice Transfers balancer liquidity tokens to fee collector
+   */
   function renounce() external override onlyOwner {
     require(feeCollectorAddress != address(0), "Fee Collector Address is not set");
     require(crpaddress != address(0), "Cannot renounce if CRP does not exist");
@@ -193,8 +237,6 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
     
     require(address(crp.bPool()) != address(0), "Cannot renounce if bPool does not exist");
 
-    crp.whitelistLiquidityProvider(governanceAddress);
-    crp.whitelistLiquidityProvider(feeCollectorAddress);
     crp.removeWhitelistedLiquidityProvider(address(this));
 
     crp.setController(governanceAddress);
@@ -203,23 +245,35 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
     IERC20(crpaddress).safeTransfer(feeCollectorAddress, crp.balanceOf(address(this)));
   }
 
-  // withdraw arbitrary token to address. Called by admin, if any remaining tokens on contract
+  /**
+  @author Asaf Silman
+  @notice Withdraws a arbitrarty ERC20 token from feeCollector to an arbitrary address.
+  @param _token The ERC20 token address.
+  @param _toAddress The destination address.
+  @param _amount The amount to transfer.
+   */
   function withdraw(address _token, address _toAddress, uint256 _amount) external onlyOwner {
     IERC20 token = IERC20(_token);
     token.safeTransfer(_toAddress, _amount);
   }
 
-  // called by owner
+  /**
+  @author Asaf Silman
+  @notice Set idle price per weth. Used for setting initial weights of smart treasury
+  @dev expressed in Wei
+  @param _idlePerWeth idle price per weth expressed in Wei
+   */
   function _setIDLEPrice(uint _idlePerWeth) external onlyOwner {
-    // set idle price per weth by owner
-    // used for setting initial weights of smart treasury
-    // expressed in Wei
-    
     idlePerWeth = _idlePerWeth;
   }
 
-  // called by owner
-  function _addTokenToDepositList(address _tokenAddress) external onlyOwner {
+  /**
+  @author Asaf Silman
+  @notice Registers a fee token to depositTokens for swapping to WETH
+  @dev All fee tokens from fee treasury should be added in this manor
+  @param _tokenAddress Token address to register with bootstrap contract
+   */
+  function _registerTokenToDepositList(address _tokenAddress) external onlyOwner {
     require(_tokenAddress != address(weth), "WETH fees are not supported"); // There is no WETH -> WETH pool in uniswap
     require(_tokenAddress != address(idle), "IDLE fees are not supported"); // Dont swap IDLE to WETH
 
@@ -227,14 +281,16 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
     depositTokens.add(_tokenAddress);
   }
 
-  // Unregister a token. Called by admin
+  /**
+  @author Asaf Silman
+  @notice Removes a fee token depositTokens
+  @param _tokenAddress Token address to remove
+   */
   function _removeTokenFromDepositList(address _tokenAddress) external onlyOwner {
-    
     IERC20(_tokenAddress).safeApprove(address(uniswapRouterV2), 0); // 0 approval for uniswap
     depositTokens.remove(_tokenAddress);
   }
 
   function _getCRPAddress() external view returns (address) { return crpaddress; }
-
   function _getCRPBPoolAddress() external view returns (address) {return address(ConfigurableRightsPool(crpaddress).bPool());}
 }
