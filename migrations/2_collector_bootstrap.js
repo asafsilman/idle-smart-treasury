@@ -3,6 +3,10 @@ const SmartTreasuryBootstrap = artifacts.require("SmartTreasuryBootstrap");
 const FeeCollector = artifacts.require("FeeCollector");
 
 module.exports = function (deployer, network) {
+  if (network === 'test' || network == 'coverage') {
+    return;
+  }
+
   _addresses = addresses[network];
 
   deployer.deploy(FeeCollector, 

@@ -11,7 +11,7 @@ interface IFeeCollector {
   function addAddressToWhiteList(address _addressToAdd) external; // Whitelist address. Called by admin
   function removeAddressFromWhiteList(address _addressToRemove) external; // Remove from whitelist. Called by admin
 
-  function addTokenToDepositList(address _tokenAddress) external; // Register a token which can converted to ETH and deposited to smart treasury. Called by admin
+  function registerTokenToDepositList(address _tokenAddress) external; // Register a token which can converted to ETH and deposited to smart treasury. Called by admin
   function removeTokenFromDepositList(address _tokenAddress) external; // Unregister a token. Called by admin
 
    // withdraw arbitrary token to address. Called by admin

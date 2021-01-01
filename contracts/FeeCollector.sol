@@ -13,6 +13,11 @@ import '@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol';
 import "./interfaces/IFeeCollector.sol";
 import "./interfaces/BalancerInterface.sol";
 
+/**
+@title Idle finance Fee collector
+@author Asaf Silman
+@notice Receives fees from idle strategy tokens and routes to fee treasury and smart treasury
+ */
 contract FeeCollector is IFeeCollector, AccessControl {
   using EnumerableSet for EnumerableSet.AddressSet;
   using SafeMath for uint256;
@@ -32,14 +37,41 @@ contract FeeCollector is IFeeCollector, AccessControl {
   uint256 ratio; // 100000 = 100%. Ratio sent to smartTreasury vs feeTreasury
 
   uint256 FULL_ALLOC = 100000;
-  uint256 MAX_NUM_FEE_TOKENS = 15;
+  uint256 MAX_NUM_FEE_TOKENS = 15; // Cap max tokens to 15
   bytes32 public constant WHITELISTED = keccak256("WHITELISTED_ROLE");
 
+  modifier smartTreasurySet {
+    require(smartTreasuryAddress!=address(0), "Smart Treasury is not set");
+    _;
+  }
+
+  modifier onlyAdmin {
+    require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Caller is not an admin");
+    _;
+  }
+
+  modifier onlyWhitelisted {
+    require(hasRole(WHITELISTED, msg.sender), "Caller is not whitelisted");
+    _;
+  }
+
   /**
-   * @dev Initialises the fee collector with addresses for the feeTreasury, the smartTreasury, weth address, and the uniswap router.
-   * Also initialises the sender as admin, and whitelists for calling deposit
+  @author Asaf Silman
+  @notice Initialise the FeeCollector contract.
+  @dev Sets the smartTreasury, weth address, uniswap router, and fee split ratio.
+  @dev Also initialises the sender as admin, and whitelists for calling `deposit()`
+  @dev setSmartTreasuryAddress should be called after the treasury has been deployed.
+  @param _uniswapRouter The address of the uniswap router.
+  @param _weth The wrapped ethereum address.
+  @param _feeTreasuryAddress The address of idle's fee treasury.
+  @param _ratio Initial fee split ratio.
    */
-  constructor (address _uniswapRouter, address _weth, address _feeTreasuryAddress) public {
+  constructor (address _uniswapRouter, address _weth, address _feeTreasuryAddress, uint _ratio) public {
+    require(_uniswapRouter != address(0), "Uniswap router address cannot be the 0 address");
+    require(_weth != address(0), "WETH address cannot be the 0 address");
+    require(_feeTreasuryAddress != address(0), "Fee Treasury address cannot be the 0 address");
+    require(_ratio <= 100000, "Ratio is too high");
+    
     _setupRole(DEFAULT_ADMIN_ROLE, msg.sender); // setup deployed as admin
     _setupRole(WHITELISTED, msg.sender); // setup admin as whitelisted address
     
@@ -49,22 +81,28 @@ contract FeeCollector is IFeeCollector, AccessControl {
     weth = _weth;
     wethInterface = IERC20(_weth);
 
-    ratio = 0; // setup ratio
+    ratio = _ratio; // setup fee split ratio (all fees will goto fee treasury)
     
-    feeTreasuryAddress = _feeTreasuryAddress; // setup feeTreasury address
+    feeTreasuryAddress = _feeTreasuryAddress; // setup fee treasury address
   }
 
-  function deposit() public override {
-    require(hasRole(WHITELISTED, msg.sender), "Caller is not an admin");
-    require(smartTreasuryAddress!=address(0), "Smart Treasury is not set");
-
+  /**
+  @author Asaf Silman
+  @notice Converts all registered fee tokens to WETH and deposits to
+          fee treasury and smart treasury based on split ratio.
+  @notice fees which are sent to fee treasury are not converted to WETH.
+  @dev The fees are swaped using Uniswap simple route. E.g. Token -> WETH.
+   */
+  function deposit() public override smartTreasurySet onlyWhitelisted {
     uint counter = depositTokens.length();
+    // iterate through all registered deposit tokens
     for (uint index = 0; index < counter; index++) {
       address _tokenAddress = depositTokens.at(index);
       IERC20 _tokenInterface = IERC20(_tokenAddress);
 
       uint256 _currentBalance = _tokenInterface.balanceOf(address(this));
       
+      // Only swap if balance > 0
       if (_currentBalance > 0) {
         // notice how decimals are not considered since we are dealing with ratios
         uint256 _feeToSmartTreasury = _currentBalance.mul(ratio).div(FULL_ALLOC); // sent to smartTreasury
@@ -75,10 +113,12 @@ contract FeeCollector is IFeeCollector, AccessControl {
         }
 
         if (_feeToSmartTreasury > 0) {
+          // create simle route; token->WETH
           address[] memory path = new address[](2);
           path[0] = _tokenAddress;
           path[1] = weth;
           
+          // swap token
           uniswapRouterV2.swapExactTokensForTokensSupportingFeeOnTransferTokens(
             _feeToSmartTreasury,
             0, 
@@ -100,54 +140,87 @@ contract FeeCollector is IFeeCollector, AccessControl {
     }
   }
 
-  // ratio of fees sent SmartTreasury vs FeeTreasury
-  // calls deposit first
-  // so all fees accrued using the previous split value are honoured.
-  function setSplitRatio(uint256 _ratio) external override {
-    require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Caller is not an admin");
+  /**
+  @author Asaf Silman
+  @notice Sets the split ratio of fees to send to fee treasury vs smart treasury.
+  @dev The split ratio must be in the range [0, 100000].
+  @dev Before the split ratio is updated internally a call to `deposit()` is made
+       such that all fee accrued using the previous.
+  @dev smartTreasury must be set for this to be called.
+  @param _ratio The updated split ratio.
+   */
+  function setSplitRatio(uint256 _ratio) external override smartTreasurySet onlyAdmin {
     require(_ratio <= 100000, "Ratio is too high");
+
     deposit();
 
     ratio = _ratio;
   }
 
-  function setFeeTreasuryAddress(address _feeTreasuryAddress) external override {
-    require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Caller is not an admin");
+  /**
+  @author Asaf Silman
+  @notice Sets the fee treasury address.
+  @dev the fee treasury address cannot be the 0 address.
+  @param _feeTreasuryAddress the new fee treasury address.
+   */
+  function setFeeTreasuryAddress(address _feeTreasuryAddress) external override onlyAdmin {
+    require(_feeTreasuryAddress!=address(0), "Can set fee treasury address as the 0 address");
 
     feeTreasuryAddress = _feeTreasuryAddress;
   }
   
-  // If for any reason the pool needs to be migrated, call this function. Called by admin
-  function setSmartTreasuryAddress(address _smartTreasuryAddress) external override {
-    require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Caller is not an admin");
+  /**
+  @author Asaf Silman
+  @notice Sets the smart treasury address.
+  @dev This needs to be called atleast once to properly initialise the contract
+  @dev Sets maximum approval for WETH to the new smart Treasury
+  @dev The smart treasury address cannot be the 0 address.
+  @param _smartTreasuryAddress The new smart treasury address
+   */
+  function setSmartTreasuryAddress(address _smartTreasuryAddress) external override onlyAdmin {
+    require(_smartTreasuryAddress!=address(0), "Can set smartTreasury address as the 0 address");
 
-    wethInterface.safeApprove(smartTreasuryAddress, 0); // set approval for previous fee address to 0
-    wethInterface.safeApprove(_smartTreasuryAddress, uint256(-1)); // max approval for new smartTreasuryAddress
+    // When contract is initialised, the smart treasury address is not yet set
+    // Only call change allowance to 0 if previous smartTreasury was not the 0 address.
+    if (smartTreasuryAddress != address(0)) {
+      wethInterface.safeApprove(smartTreasuryAddress, 0); // set approval for previous fee address to 0
+    }
+    // max approval for new smartTreasuryAddress
+    wethInterface.safeApprove(_smartTreasuryAddress, uint256(-1));
     smartTreasuryAddress = _smartTreasuryAddress;
   }
 
-  // Whitelist address. Called by admin
-  function addAddressToWhiteList(address _addressToAdd) external override {
-    require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Caller is not an admin");
-
+  /**
+  @author Asaf Silman
+  @notice Gives an address the WHITELISTED role. Used for calling `deposit()`.
+  @dev Can only be called by admin.
+  @param _addressToAdd The address to grant the role.
+   */
+  function addAddressToWhiteList(address _addressToAdd) external override onlyAdmin{
     grantRole(WHITELISTED, _addressToAdd);
   }
 
-  // Remove from whitelist. Called by admin
-  function removeAddressFromWhiteList(address _addressToRemove) external override {
-    require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Caller is not an admin");
-
+  /**
+  @author Asaf Silman
+  @notice Removed an address from whitelist.
+  @dev Can only be called by admin
+  @param _addressToRemove The address to revoke the WHITELISTED role.
+   */
+  function removeAddressFromWhiteList(address _addressToRemove) external override onlyAdmin {
     revokeRole(WHITELISTED, _addressToRemove);
   }
     
-  // Register a token which can converted to ETH and deposited to smart treasury. Called by admin
   /**
-   * @dev the deposit token must have a uniswap TOKEN -> WETH pool.
-   * This smart contract uses a simple route of TOKEN -> WETH to deposit into smart treasury
+  @author Asaf Silman
+  @notice Registers a fee token to the fee collecter
+  @dev There is a maximum of 15 fee tokens than can be registered.
+  @dev WETH cannot be accepted as a fee token.
+  @dev The token must be a complient ERC20 token.
+  @dev The fee token is approved for the uniswap router
+  @param _tokenAddress The token address to register
    */
-  function addTokenToDepositList(address _tokenAddress) external override {
+  function registerTokenToDepositList(address _tokenAddress) external override onlyAdmin {
     // cannot be weth
-    require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Caller is not an admin");
     require(depositTokens.length() < MAX_NUM_FEE_TOKENS, "Too many tokens");
     require(_tokenAddress != weth, "WETH fees are not supported"); // There is no WETH -> WETH pool in uniswap
 
@@ -155,26 +228,36 @@ contract FeeCollector is IFeeCollector, AccessControl {
     depositTokens.add(_tokenAddress);
   }
 
-  // Unregister a token. Called by admin
-  function removeTokenFromDepositList(address _tokenAddress) external override {
-    require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Caller is not an admin");
-    // require(depositTokens.contains(_tokenAddress), "tokenAddress not cointained in whitelist");
-
+  /**
+  @author Asaf Silman
+  @notice Removed a fee token from the fee collector.
+  @dev Resets uniswap approval to 0.
+  @param _tokenAddress The fee token address to remove.
+   */
+  function removeTokenFromDepositList(address _tokenAddress) external override onlyAdmin {
     IERC20(_tokenAddress).safeApprove(address(uniswapRouterV2), 0); // 0 approval for uniswap
     depositTokens.remove(_tokenAddress);
   }
 
-  // withdraw balancer liquidity token to address. Called by admin
-  function withdraw(address _token, address _toAddress, uint256 _amount) external override {
-    require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Caller is not an admin");
-
+  /**
+  @author Asaf Silman
+  @notice Withdraws a arbitrarty ERC20 token from feeCollector to an arbitrary address.
+  @param _token The ERC20 token address.
+  @param _toAddress The destination address.
+  @param _amount The amount to transfer.
+   */
+  function withdraw(address _token, address _toAddress, uint256 _amount) external override onlyAdmin {
     IERC20 token = IERC20(_token);
     token.safeTransfer(_toAddress, _amount);
   }
 
-  // exchange liquidity token for underlying token and withdraw to _toAddress
-  function withdrawUnderlying(address _toAddress, uint256 _amount) external override {
-    require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Caller is not an admin");
+  /**
+  @author Asaf Silman
+  @notice Exchanges balancer pool token for the underlying assets and withdraws
+  @param _toAddress The address to send the underlying tokens to
+  @param _amount The underlying amount of balancer pool tokens to exchange
+  */
+  function withdrawUnderlying(address _toAddress, uint256 _amount) external override smartTreasurySet onlyAdmin{
     // TODO, does this address need to be approved ??
     BPool smartTreasuryBPool = BPool(smartTreasuryAddress);
 
@@ -191,12 +274,18 @@ contract FeeCollector is IFeeCollector, AccessControl {
     }
   }
 
-  function replaceAdmin(address _newAdmin) external override {
-    require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Caller is not an admin");
-
+  /**
+  @author Asaf Silman
+  @notice Replaces the current admin with a new admin.
+  @dev The current admin rights are revoked, and given the new address.
+  @dev The caller must be admin (see onlyAdmin modifier).
+  @param _newAdmin The new admin address.
+   */
+  function replaceAdmin(address _newAdmin) external override onlyAdmin {
+    
     grantRole(DEFAULT_ADMIN_ROLE, _newAdmin);
-    revokeRole(DEFAULT_ADMIN_ROLE, msg.sender); // caller must be admin
-  } // called by admin
+    revokeRole(DEFAULT_ADMIN_ROLE, msg.sender); // caller must be 
+  }
 
   function getSplitRatio() external view returns (uint256) { return (ratio); }
 

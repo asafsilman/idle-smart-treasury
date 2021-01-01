@@ -61,8 +61,9 @@ contract("FeeCollector", async accounts => {
       addresses.uniswapRouterAddress,
       this.mockWETH.address,
       addresses.feeTreasuryAddress,
-      this.balancerPool.address
     )
+
+    await this.feeCollectorInstance.setSmartTreasuryAddress(newBPoolAddress);
   })
     
   it("Should correctly deploy", async function() {
@@ -93,7 +94,7 @@ contract("FeeCollector", async accounts => {
   it("Should deposit tokens with split set to 50/50", async function() {
     let instance = this.feeCollectorInstance;
     await instance.setSplitRatio(this.ratio_one_pecrent.mul(BNify(50)), {from: accounts[0]}) // set split 50/50
-    await instance.addTokenToDepositList(this.mockDAI.address, {from: accounts[0]}); // whitelist dai
+    await instance.registerTokenToDepositList(this.mockDAI.address, {from: accounts[0]}); // whitelist dai
     
     let feeTreasuryDaiBalanceBefore = BNify(await this.mockDAI.balanceOf.call(addresses.feeTreasuryAddress));
     let smartTreasuryWethBalanceBefore = BNify(await this.mockWETH.balanceOf.call(this.balancerPool.address)); 
@@ -117,7 +118,7 @@ contract("FeeCollector", async accounts => {
     let isDaiInDepositListFromBootstrap = await instance.isTokenInDespositList.call(mockDaiAddress);
     assert.isFalse(isDaiInDepositListFromBootstrap);
 
-    await instance.addTokenToDepositList(mockDaiAddress, {from: accounts[0]});
+    await instance.registerTokenToDepositList(mockDaiAddress, {from: accounts[0]});
     
     let daiInDepositList = await instance.isTokenInDespositList.call(mockDaiAddress);
     assert.isTrue(daiInDepositList);
