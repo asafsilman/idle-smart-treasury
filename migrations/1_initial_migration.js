@@ -1,7 +1,7 @@
 const Migrations = artifacts.require("Migrations");
 
 module.exports = function (deployer, network) {
-  if (network === 'test' || network == 'coverage') {
+  if (network === 'test' || network == 'soliditycoverage') {
     return;
   }
 

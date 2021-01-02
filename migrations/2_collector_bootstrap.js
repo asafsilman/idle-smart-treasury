@@ -8,7 +8,7 @@ const {BN} = require('@openzeppelin/test-helpers');
 const BNify = n => new BN(String(n));
 
 module.exports = function (deployer, network) {
-  if (network === 'test' || network == 'coverage') {
+  if (network === 'test' || network == 'soliditycoverage') {
     return;
   }
 
