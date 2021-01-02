@@ -144,6 +144,7 @@ contract FeeCollector is IFeeCollector, AccessControl {
   /**
   @author Asaf Silman
   @notice Sets the split ratio of fees to send to fee treasury vs smart treasury.
+  @notice 100% means all fees are sent to smart treasury.
   @dev The split ratio must be in the range [0, 100000].
   @dev Before the split ratio is updated internally a call to `deposit()` is made
        such that all fee accrued using the previous.
@@ -259,7 +260,6 @@ contract FeeCollector is IFeeCollector, AccessControl {
   @param _amount The underlying amount of balancer pool tokens to exchange
   */
   function withdrawUnderlying(address _toAddress, uint256 _amount) external override smartTreasurySet onlyAdmin{
-    // TODO, does this address need to be approved ??
     ConfigurableRightsPool crp = ConfigurableRightsPool(smartTreasuryAddress);
     BPool smartTreasuryBPool = crp.bPool();
 

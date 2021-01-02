@@ -211,18 +211,20 @@ contract("FeeCollector", async accounts => {
     await this.mockDAI.transfer(instance.address, depositAmount, {from: accounts[0]}) // 500 DAI
     await instance.deposit({from: accounts[0]}) // call deposit
 
-    let balancerPoolTokenBalanceBefore = BNify(await this.bPool.balanceOf.call(instance.address));
+    let balancerPoolTokenBalanceBefore = BNify(await this.crp.balanceOf.call(instance.address));
     
     expect(balancerPoolTokenBalanceBefore).to.be.bignumber.that.is.greaterThan(BNify('0'))
 
     await instance.withdrawUnderlying(this.nonZeroAddress, balancerPoolTokenBalanceBefore.div(BNify("2")))
 
-    let balancerPoolTokenBalanceAfter = BNify(await this.bPool.balanceOf.call(this.nonZeroAddress));
+    let balancerPoolTokenBalanceAfter = BNify(await this.crp.balanceOf.call(instance.address));
     expect(balancerPoolTokenBalanceAfter).to.be.bignumber.that.is.equal(balancerPoolTokenBalanceBefore.div(BNify("2")))
 
-    let daiBalanceWithdrawn = await this.mockDAI.balanceOf.call(this.nonZeroAddress)
-    console.log(daiBalanceWithdrawn)
-    expect(daiBalance).to.be.bignumber.that.is.greaterThan(BNify('0'))
+    let idleBalanceWithdrawn = await this.mockIDLE.balanceOf.call(this.nonZeroAddress)
+    let wethBalanceWithdrawn = await this.mockWETH.balanceOf.call(this.nonZeroAddress)
+    
+    expect(idleBalanceWithdrawn).to.be.bignumber.that.is.greaterThan(BNify('0'))
+    expect(wethBalanceWithdrawn).to.be.bignumber.that.is.greaterThan(BNify('0'))
 
   })
 })
