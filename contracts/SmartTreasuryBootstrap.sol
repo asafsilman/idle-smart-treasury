@@ -190,8 +190,8 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
 
     crpaddress = address(crp);
 
-    idle.safeApprove(crpaddress, balances[0]); // approve transfer of idle
-    weth.safeApprove(crpaddress, balances[1]); // approve transfer of idle
+    idle.safeIncreaseAllowance(crpaddress, balances[0]); // approve transfer of idle
+    weth.safeIncreaseAllowance(crpaddress, balances[1]); // approve transfer of idle
   }
 
   /**
@@ -278,7 +278,7 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
     require(_tokenAddress != address(weth), "WETH fees are not supported"); // There is no WETH -> WETH pool in uniswap
     require(_tokenAddress != address(idle), "IDLE fees are not supported"); // Dont swap IDLE to WETH
 
-    IERC20(_tokenAddress).safeApprove(address(uniswapRouterV2), uint256(-1)); // max approval
+    IERC20(_tokenAddress).safeIncreaseAllowance(address(uniswapRouterV2), uint256(-1)); // max approval
     depositTokens.add(_tokenAddress);
   }
 

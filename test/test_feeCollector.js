@@ -135,6 +135,29 @@ contract("FeeCollector", async accounts => {
     expect(balancerPoolTokenBalance).to.be.bignumber.that.is.greaterThan(BNify('0'))
   })
 
+  it("Should revert when calling function with onlyWhitelisted modifier from non-whitelisted address", async function() {
+    let instance = this.feeCollectorInstance
+    
+    await instance.setSmartTreasuryAddress(this.crp.address) // must set smart treasury address
+    await expectRevert(instance.deposit({from: accounts[1]}), "Unauthorised") // call deposit
+  })
+
+  it("Should revert when calling function with onlyAdmin modifier when not admin", async function() {
+    let instance = this.feeCollectorInstance
+    
+    let ratio = this.ratio_one_pecrent.mul(BNify('100'))
+    
+    await instance.setSmartTreasuryAddress(this.crp.address) // must set smart treasury address
+    await expectRevert(instance.setSplitRatio(ratio, {from: accounts[1]}), "Unauthorised")
+  })
+
+  it("Should revert when calling function with smartTreasurySet modifier when smart treasury not set", async function() {
+    let instance = this.feeCollectorInstance
+    
+    let ratio = this.ratio_one_pecrent.mul(BNify('100'))
+    await expectRevert(instance.setSplitRatio(ratio, {from: accounts[0]}), "Smart Treasury not set")
+  })
+
   it("Should add & remove a token from the deposit list", async function() {
     let instance = this.feeCollectorInstance
     let mockDaiAddress = this.mockDAI.address
@@ -158,7 +181,7 @@ contract("FeeCollector", async accounts => {
     let initialFeeTreasuryAddress = await instance.getFeeTreasuryAddress.call()
     expect(initialFeeTreasuryAddress.toLowerCase()).to.be.equal(addresses.feeTreasuryAddress.toLowerCase())
 
-    await expectRevert(instance.setFeeTreasuryAddress(this.zeroAddress), "Cannot set fee treasury address as the 0 address")
+    await expectRevert(instance.setFeeTreasuryAddress(this.zeroAddress), "Fee treasury cannot be 0 address")
     await instance.setFeeTreasuryAddress(this.nonZeroAddress)
 
     let newFeeTreasuryAddress = await instance.getFeeTreasuryAddress.call()
@@ -171,7 +194,7 @@ contract("FeeCollector", async accounts => {
     let initialSmartTreasuryAddress = await instance.getSmartTreasuryAddress.call()
     expect(initialSmartTreasuryAddress.toLowerCase()).to.be.equal(this.zeroAddress) // initially this address will not be set
 
-    await expectRevert(instance.setSmartTreasuryAddress(this.zeroAddress), "Cannot set smart treasury address as the 0 address")
+    await expectRevert(instance.setSmartTreasuryAddress(this.zeroAddress), "Smart treasury cannot be 0 address")
     await instance.setSmartTreasuryAddress(this.nonZeroAddress)
 
     let newFeeTreasuryAddress = await instance.getSmartTreasuryAddress.call()
@@ -225,6 +248,69 @@ contract("FeeCollector", async accounts => {
     
     expect(idleBalanceWithdrawn).to.be.bignumber.that.is.greaterThan(BNify('0'))
     expect(wethBalanceWithdrawn).to.be.bignumber.that.is.greaterThan(BNify('0'))
+  })
 
+  it("Should withdraw arbitrary token", async function() {
+    let instance = this.feeCollectorInstance
+
+    let depositAmount = web3.utils.toWei("500")
+
+    await this.mockDAI.transfer(instance.address, depositAmount, {from: accounts[0]}) // 500 DAI
+
+    await instance.withdraw(this.mockDAI.address, this.nonZeroAddress, depositAmount)
+    let daiBalance = await this.mockDAI.balanceOf.call(this.nonZeroAddress)
+
+    expect(daiBalance).to.be.bignumber.equal(depositAmount)
+  })
+
+  it("Should replace admin", async function() {
+    let instance = this.feeCollectorInstance
+
+    let nonZeroAddressIsAdmin = await instance.isAddressAdmin.call(this.nonZeroAddress)
+    await instance.replaceAdmin(this.nonZeroAddress, {from: accounts[0]})
+
+    let nonZeroAddressIsAdminAfter = await instance.isAddressAdmin.call(this.nonZeroAddress)
+    let previousAdminRevoked = await instance.isAddressAdmin.call(accounts[0])
+
+    expect(nonZeroAddressIsAdmin, "Address should not start off as admin").to.be.false
+    expect(nonZeroAddressIsAdminAfter, "Address should be granted admin").to.be.true
+    expect(previousAdminRevoked, "Previous admin should be revoked").to.be.false
+  })
+
+  it("Should not be able to add duplicate deposit token", async function() {
+    let instance = this.feeCollectorInstance
+
+    await instance.registerTokenToDepositList(this.mockDAI.address)
+    await expectRevert(instance.registerTokenToDepositList(this.mockDAI.address), "Already exists")
+
+    let totalDepositTokens = await instance.getNumTokensInDepositList.call()
+    expect(totalDepositTokens).to.be.bignumber.equal(BNify('1'))
+  })
+
+  it("Should not add WETH as deposit token", async function() {
+    let instance = this.feeCollectorInstance
+
+    await expectRevert(instance.registerTokenToDepositList(this.mockWETH.address), "WETH not supported")
+  })
+
+  it("Should not be able to add deposit tokens past limit", async function() {
+    let instance = this.feeCollectorInstance
+
+    for (let index = 0; index < 15; index++) {
+      let token = await mockDAI.new()
+      await instance.registerTokenToDepositList(token.address)
+    }
+
+    let token = await mockDAI.new()
+    await expectRevert(instance.registerTokenToDepositList(token.address), "Too many tokens")
+  })
+
+  it("Should not set invalid split ratio", async function() {
+    let instance = this.feeCollectorInstance
+    
+    let ratio = this.ratio_one_pecrent.mul(BNify('101'))
+    
+    await instance.setSmartTreasuryAddress(this.crp.address) // must set smart treasury address
+    await expectRevert(instance.setSplitRatio(ratio), "Ratio is too high")
   })
 })

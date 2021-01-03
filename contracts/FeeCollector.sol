@@ -37,22 +37,22 @@ contract FeeCollector is IFeeCollector, AccessControl {
 
   uint256 private ratio; // 100000 = 100%. Ratio sent to smartTreasury vs feeTreasury
 
-  uint256 private FULL_ALLOC = 100000;
-  uint256 private MAX_NUM_FEE_TOKENS = 15; // Cap max tokens to 15
+  uint256 public constant FULL_ALLOC = 100000;
+  uint256 public constant MAX_NUM_FEE_TOKENS = 15; // Cap max tokens to 15
   bytes32 public constant WHITELISTED = keccak256("WHITELISTED_ROLE");
 
   modifier smartTreasurySet {
-    require(smartTreasuryAddress!=address(0), "Smart Treasury is not set");
+    require(smartTreasuryAddress!=address(0), "Smart Treasury not set");
     _;
   }
 
   modifier onlyAdmin {
-    require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Caller is not an admin");
+    require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender), "Unauthorised");
     _;
   }
 
   modifier onlyWhitelisted {
-    require(hasRole(WHITELISTED, msg.sender), "Caller is not whitelisted");
+    require(hasRole(WHITELISTED, msg.sender), "Unauthorised");
     _;
   }
 
@@ -68,9 +68,9 @@ contract FeeCollector is IFeeCollector, AccessControl {
   @param _ratio Initial fee split ratio.
    */
   constructor (address _uniswapRouter, address _weth, address _feeTreasuryAddress, uint _ratio) public {
-    require(_uniswapRouter != address(0), "Uniswap router address cannot be the 0 address");
-    require(_weth != address(0), "WETH address cannot be the 0 address");
-    require(_feeTreasuryAddress != address(0), "Fee Treasury address cannot be the 0 address");
+    require(_uniswapRouter != address(0), "Uniswap router cannot be 0 address");
+    require(_weth != address(0), "WETH cannot be the 0 address");
+    require(_feeTreasuryAddress != address(0), "Fee Treasury cannot be 0 address");
     require(_ratio <= 100000, "Ratio is too high");
     
     _setupRole(DEFAULT_ADMIN_ROLE, msg.sender); // setup deployed as admin
@@ -99,8 +99,7 @@ contract FeeCollector is IFeeCollector, AccessControl {
     
     // iterate through all registered deposit tokens
     for (uint index = 0; index < counter; index++) {
-      address _tokenAddress = depositTokens.at(index);
-      IERC20 _tokenInterface = IERC20(_tokenAddress);
+      IERC20 _tokenInterface = IERC20(depositTokens.at(index));
 
       uint256 _currentBalance = _tokenInterface.balanceOf(address(this));
       
@@ -117,7 +116,7 @@ contract FeeCollector is IFeeCollector, AccessControl {
         if (_feeToSmartTreasury > 0) {
           // create simple route; token->WETH
           address[] memory path = new address[](2);
-          path[0] = _tokenAddress;
+          path[0] = depositTokens.at(index);
           path[1] = weth;
           
           // swap token
@@ -166,7 +165,7 @@ contract FeeCollector is IFeeCollector, AccessControl {
   @param _feeTreasuryAddress the new fee treasury address.
    */
   function setFeeTreasuryAddress(address _feeTreasuryAddress) external override onlyAdmin {
-    require(_feeTreasuryAddress!=address(0), "Cannot set fee treasury address as the 0 address");
+    require(_feeTreasuryAddress!=address(0), "Fee treasury cannot be 0 address");
 
     feeTreasuryAddress = _feeTreasuryAddress;
   }
@@ -180,7 +179,7 @@ contract FeeCollector is IFeeCollector, AccessControl {
   @param _smartTreasuryAddress The new smart treasury address
    */
   function setSmartTreasuryAddress(address _smartTreasuryAddress) external override onlyAdmin {
-    require(_smartTreasuryAddress!=address(0), "Cannot set smart treasury address as the 0 address");
+    require(_smartTreasuryAddress!=address(0), "Smart treasury cannot be 0 address");
 
     // When contract is initialised, the smart treasury address is not yet set
     // Only call change allowance to 0 if previous smartTreasury was not the 0 address.
@@ -188,7 +187,7 @@ contract FeeCollector is IFeeCollector, AccessControl {
       wethInterface.safeApprove(smartTreasuryAddress, 0); // set approval for previous fee address to 0
     }
     // max approval for new smartTreasuryAddress
-    wethInterface.safeApprove(_smartTreasuryAddress, uint256(-1));
+    wethInterface.safeIncreaseAllowance(_smartTreasuryAddress, uint256(-1));
     smartTreasuryAddress = _smartTreasuryAddress;
   }
 
@@ -224,9 +223,10 @@ contract FeeCollector is IFeeCollector, AccessControl {
   function registerTokenToDepositList(address _tokenAddress) external override onlyAdmin {
     // cannot be weth
     require(depositTokens.length() < MAX_NUM_FEE_TOKENS, "Too many tokens");
-    require(_tokenAddress != weth, "WETH fees are not supported"); // There is no WETH -> WETH pool in uniswap
+    require(_tokenAddress != weth, "WETH not supported"); // There is no WETH -> WETH pool in uniswap
+    require(depositTokens.contains(_tokenAddress) == false, "Already exists");
 
-    IERC20(_tokenAddress).safeApprove(address(uniswapRouterV2), uint256(-1)); // max approval
+    IERC20(_tokenAddress).safeIncreaseAllowance(address(uniswapRouterV2), uint256(-1)); // max approval
     depositTokens.add(_tokenAddress);
   }
 
@@ -264,9 +264,9 @@ contract FeeCollector is IFeeCollector, AccessControl {
     BPool smartTreasuryBPool = crp.bPool();
 
     uint numTokensInPool = smartTreasuryBPool.getNumTokens();
-    uint[] memory minTokens = new uint[](numTokensInPool); 
+    // uint[] memory minTokens = ; 
 
-    crp.exitPool(_amount, minTokens);
+    crp.exitPool(_amount, new uint[](numTokensInPool));
 
     address[] memory treasuryTokens = smartTreasuryBPool.getCurrentTokens();
 
@@ -284,7 +284,6 @@ contract FeeCollector is IFeeCollector, AccessControl {
   @param _newAdmin The new admin address.
    */
   function replaceAdmin(address _newAdmin) external override onlyAdmin {
-    
     grantRole(DEFAULT_ADMIN_ROLE, _newAdmin);
     revokeRole(DEFAULT_ADMIN_ROLE, msg.sender); // caller must be 
   }
@@ -298,4 +297,5 @@ contract FeeCollector is IFeeCollector, AccessControl {
   function getSmartTreasuryAddress() external view returns (address) { return (smartTreasuryAddress); }
 
   function isTokenInDespositList(address _tokenAddress) external view returns (bool) {return (depositTokens.contains(_tokenAddress)); }
+  function getNumTokensInDepositList() external view returns (uint) {return (depositTokens.length());}
 }
