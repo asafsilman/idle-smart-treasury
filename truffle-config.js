@@ -76,8 +76,8 @@ module.exports = {
 
   // Set default mocha options here, use special reporters etc.
   mocha: {
-    useColors: true
-    // timeout: 100000
+    useColors: true,
+    timeout: 0
   },
 
   plugins: ["solidity-coverage"],

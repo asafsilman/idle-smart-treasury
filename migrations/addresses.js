@@ -26,7 +26,10 @@ const addresses = {
       '0xdac17f958d2ee523a2206206994597c13d831ec7', // tusd
       '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', // usdc
       '0xc00e94cb662c3520282e6f5717214004a7f26888'  // comp
-    ]
+    ],
+
+    _founder: "0x3675D2A334f17bCD4689533b7Af263D48D96eC72",
+    _vesterFactory: "0xbF875f2C6e4Cc1688dfe4ECf79583193B6089972"
   },
   kovan: {
     uniswapFactory: '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f',
