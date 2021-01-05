@@ -32,6 +32,8 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
 
   uint private idlePerWeth; // internal price oracle for IDLE
 
+  bool private renounced;
+
   IBFactory private balancer_bfactory;
   ICRPFactory private balancer_crpfactory;
 
@@ -84,6 +86,8 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
     // configure network addresses
     governanceAddress = _governanceAddress;
     feeCollectorAddress = _feeCollectorAddress;
+
+    renounced = false; // flag to indicate whether renounce has been called
   }
 
   /**
@@ -239,11 +243,12 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
     require(address(crp.bPool()) != address(0), "Cannot renounce if bPool does not exist");
 
     crp.removeWhitelistedLiquidityProvider(address(this));
-
     crp.setController(governanceAddress);
 
     // transfer using safe transfer
     IERC20(crpaddress).safeTransfer(feeCollectorAddress, crp.balanceOf(address(this)));
+    
+    renounced = true;
   }
 
   /**
@@ -254,6 +259,8 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
   @param _amount The amount to transfer.
    */
   function withdraw(address _token, address _toAddress, uint256 _amount) external onlyOwner {
+    require(renounced==true, "Can only withdraw after contract is renounced");
+
     IERC20 token = IERC20(_token);
     token.safeTransfer(_toAddress, _amount);
   }
