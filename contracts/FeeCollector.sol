@@ -41,6 +41,7 @@ contract FeeCollector is IFeeCollector, AccessControl {
   uint128 public constant MAX_BENEFICIARIES = 5;
   uint128 public constant MIN_BENEFICIARIES = 2;
   uint256 public constant FULL_ALLOC = 100000;
+
   uint256 public constant MAX_NUM_FEE_TOKENS = 15; // Cap max tokens to 15
   bytes32 public constant WHITELISTED = keccak256("WHITELISTED_ROLE");
 
@@ -128,7 +129,7 @@ contract FeeCollector is IFeeCollector, AccessControl {
         // notice how decimals are not considered since we are dealing with ratios
         _feeToSmartTreasury = feeBalances[0]; // sent to smartTreasury
     
-        if (_currentBalance - _feeToSmartTreasury  > 0){
+        if (_currentBalance.sub(_feeToSmartTreasury)  > 0){
           // NOTE: beneficiary_index starts at 1, NOT 0, since 0 is reserved for smart treasury
           for (uint beneficiary_index = 1; beneficiary_index < beneficiaries.length; beneficiary_index++){
             _tokenInterface.safeTransfer(beneficiaries[beneficiary_index], feeBalances[beneficiary_index]);
@@ -202,15 +203,16 @@ contract FeeCollector is IFeeCollector, AccessControl {
   //   feeTreasuryAddress = _feeTreasuryAddress;
   // }
 
-  function addBeneficiaryAddress(address _newBeneficiary, uint256[] calldata _newAllocation) external override onlyAdmin {
+  function addBeneficiaryAddress(address _newBeneficiary, uint256[] calldata _newAllocation) external override smartTreasurySet onlyAdmin {
     require(beneficiaries.length < MAX_BENEFICIARIES, "Max beneficiaries");
+    require(_newBeneficiary!=address(0), "beneficiary cannot be 0 address");
 
     beneficiaries.push(_newBeneficiary);
     setSplitAllocation(_newAllocation);
   }
 
 
-  function removeBeneficiaryAt(uint256 _index, uint256[] calldata _newAllocation) external override onlyAdmin {
+  function removeBeneficiaryAt(uint256 _index, uint256[] calldata _newAllocation) external override smartTreasurySet onlyAdmin {
     require(_index >= 1, "Invalid beneficiary to remove");
     require(beneficiaries.length > MIN_BENEFICIARIES, "Min beneficiaries");
 
@@ -221,8 +223,9 @@ contract FeeCollector is IFeeCollector, AccessControl {
     setSplitAllocation(_newAllocation); // NOTE THE ORDER OF ALLOCATIONS
   }
 
-  function replaceBeneficiaryAt(uint256 _index, address _newBeneficiary, uint256[] calldata _newAllocation) external override onlyAdmin {
+  function replaceBeneficiaryAt(uint256 _index, address _newBeneficiary, uint256[] calldata _newAllocation) external override smartTreasurySet onlyAdmin {
     require(_index >= 1, "Invalid beneficiary to remove");
+    require(_newBeneficiary!=address(0), "Beneficiary cannot be 0 address");
 
     beneficiaries[_index] = _newBeneficiary;
 
