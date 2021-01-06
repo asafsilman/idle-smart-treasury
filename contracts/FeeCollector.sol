@@ -67,7 +67,7 @@ contract FeeCollector is IFeeCollector, AccessControl {
   @param _feeTreasuryAddress The address of idle's fee treasury.
   @param _ratio Initial fee split ratio.
    */
-  constructor (address _uniswapRouter, address _weth, address _feeTreasuryAddress, uint _ratio) public {
+  constructor (address _uniswapRouter, address _weth, address _feeTreasuryAddress, uint256 _ratio) public {
     require(_uniswapRouter != address(0), "Uniswap router cannot be 0 address");
     require(_weth != address(0), "WETH cannot be the 0 address");
     require(_feeTreasuryAddress != address(0), "Fee Treasury cannot be 0 address");
@@ -94,11 +94,14 @@ contract FeeCollector is IFeeCollector, AccessControl {
   @notice fees which are sent to fee treasury are not converted to WETH.
   @dev The fees are swaped using Uniswap simple route. E.g. Token -> WETH.
    */
-  function deposit() public override smartTreasurySet onlyWhitelisted {
-    uint counter = depositTokens.length();
+  function deposit(bool[] memory _depositTokensEnabled) public override smartTreasurySet onlyWhitelisted {
+    uint256 counter = depositTokens.length();
+    require(_depositTokensEnabled.length == counter, "Invalid length");
     
     // iterate through all registered deposit tokens
-    for (uint index = 0; index < counter; index++) {
+    for (uint256 index = 0; index < counter; index++) {
+      if (_depositTokensEnabled[index] == false) {continue;}
+
       IERC20 _tokenInterface = IERC20(depositTokens.at(index));
 
       uint256 _currentBalance = _tokenInterface.balanceOf(address(this));
@@ -153,7 +156,12 @@ contract FeeCollector is IFeeCollector, AccessControl {
   function setSplitRatio(uint256 _ratio) external override smartTreasurySet onlyAdmin {
     require(_ratio <= 100000, "Ratio is too high");
 
-    deposit();
+    uint256 numTokens = depositTokens.length();
+    bool[] memory depositTokensEnabled = new bool[](numTokens);
+
+    for (uint256 i; i<numTokens; i++) {depositTokensEnabled[i] = true;}
+
+    deposit(depositTokensEnabled);
 
     ratio = _ratio;
   }
@@ -263,14 +271,14 @@ contract FeeCollector is IFeeCollector, AccessControl {
     ConfigurableRightsPool crp = ConfigurableRightsPool(smartTreasuryAddress);
     BPool smartTreasuryBPool = crp.bPool();
 
-    uint numTokensInPool = smartTreasuryBPool.getNumTokens();
+    uint256 numTokensInPool = smartTreasuryBPool.getNumTokens();
     // uint[] memory minTokens = ; 
 
     crp.exitPool(_amount, new uint[](numTokensInPool));
 
     address[] memory treasuryTokens = smartTreasuryBPool.getCurrentTokens();
 
-    for (uint i=0; i<treasuryTokens.length; i++) {
+    for (uint256 i=0; i<treasuryTokens.length; i++) {
       IERC20 tokenInterface = IERC20(treasuryTokens[i]);
       tokenInterface.safeTransfer(_toAddress, tokenInterface.balanceOf(address(this))); // transfer all to address
     }
@@ -298,4 +306,14 @@ contract FeeCollector is IFeeCollector, AccessControl {
 
   function isTokenInDespositList(address _tokenAddress) external view returns (bool) {return (depositTokens.contains(_tokenAddress)); }
   function getNumTokensInDepositList() external view returns (uint) {return (depositTokens.length());}
+
+  function getDepositTokens() external view returns (address[] memory) {
+    uint256 numTokens = depositTokens.length();
+
+    address[] memory depositTokenList = new address[](numTokens);
+    for (uint256 index = 0; index < numTokens; index++) {
+      depositTokenList[index] = depositTokens.at(index);
+    }
+    return (depositTokenList);
+  }
 }
