@@ -111,7 +111,7 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
       
       uniswapRouterV2.swapExactTokensForTokensSupportingFeeOnTransferTokens(
         _currentBalance,
-        0, 
+        1, // receive atleast 1 wei of ETH 
         path,
         address(this),
         block.timestamp
