@@ -136,6 +136,33 @@ contract("FeeCollector", async accounts => {
     expect(balancerPoolTokenBalance).to.be.bignumber.that.is.greaterThan(BNify('0'))
   })
 
+  it("Should deposit with max fee tokens and max beneficiaries", async function() {
+    let instance = this.feeCollectorInstance
+    await instance.setSmartTreasuryAddress(this.crp.address)
+
+    let initialAllocation = [BNify('95'), BNify('5')]
+
+    for (let index=0; index < 3; index++) {
+      initialAllocation[0] = BNify(90-5*index)
+      initialAllocation.push(BNify('5'))
+      
+      let allocation = initialAllocation.map(x => this.ratio_one_pecrent.mul(x))
+      await instance.addBeneficiaryAddress(accounts[index], allocation)
+    }
+
+    let tokensEnables = [];
+    for (let index = 0; index < 15; index++) {
+      let token = await mockDAI.new()
+      await instance.registerTokenToDepositList(token.address)
+      tokensEnables.push(true);
+    }
+
+    let transaction = await instance.deposit(tokensEnables)
+
+    console.log(`Gas used: ${transaction.receipt.gasUsed}`)
+
+  })
+
   it("Should revert when calling function with onlyWhitelisted modifier from non-whitelisted address", async function() {
     let instance = this.feeCollectorInstance
     
