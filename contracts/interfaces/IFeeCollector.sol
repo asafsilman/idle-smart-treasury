@@ -4,8 +4,12 @@ pragma solidity >=0.6.0 <=0.7.5;
 
 interface IFeeCollector {
   function deposit(bool[] calldata _depositTokensEnabled) external; // called by whitelisted address
-  function setSplitRatio(uint256 _ratio) external; // ratio of fees sent SmartTreasury vs FeeTreasury
-  function setFeeTreasuryAddress(address _feeTreasuryAddress) external; // called by admin
+  function setSplitAllocation(uint256[] calldata _allocations) external; // allocation of fees sent SmartTreasury vs FeeTreasury
+  // function setFeeTreasuryAddress(address _feeTreasuryAddress) external; // called by admin
+
+  function addBeneficiaryAddress(address _newBeneficiary, uint256[] calldata _newAllocation) external;
+  function removeBeneficiaryAt(uint256 _index, uint256[] calldata _newAllocation) external;
+  function replaceBeneficiaryAt(uint256 _index, address _newBeneficiary, uint256[] calldata _newAllocation) external;
   function setSmartTreasuryAddress(address _smartTreasuryAddress) external; // If for any reason the pool needs to be migrated, call this function. Called by admin
 
   function addAddressToWhiteList(address _addressToAdd) external; // Whitelist address. Called by admin
