@@ -18,7 +18,7 @@ module.exports = function (deployer, network) {
     _addresses.uniswapRouterAddress,
     _addresses.weth,
     _addresses.feeTreasuryAddress,
-    BNify('0')
+    BNify('80000') // 80% to smart treasury
     ).then(function() {
       deployer.deploy(SmartTreasuryBootstrap,
         _addresses.balancerCoreFactory,
