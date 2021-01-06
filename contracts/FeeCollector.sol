@@ -98,7 +98,7 @@ contract FeeCollector is IFeeCollector, AccessControl {
   /**
   @author Asaf Silman
   @notice Converts all registered fee tokens to WETH and deposits to
-          fee treasury and smart treasury based on split ratio.
+          fee treasury and smart treasury based on split allocations.
   @notice fees which are sent to fee treasury are not converted to WETH.
   @dev The fees are swaped using Uniswap simple route. E.g. Token -> WETH.
    */
@@ -126,8 +126,7 @@ contract FeeCollector is IFeeCollector, AccessControl {
       
       // Only swap if balance > 0
       if (_currentBalance > 0) {
-        // notice how decimals are not considered since we are dealing with ratios
-        _feeToSmartTreasury = feeBalances[0]; // sent to smartTreasury
+        _feeToSmartTreasury = feeBalances[0]; // fee sent to smartTreasury
     
         if (_currentBalance.sub(_feeToSmartTreasury)  > 0){
           // NOTE: beneficiary_index starts at 1, NOT 0, since 0 is reserved for smart treasury
