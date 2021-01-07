@@ -97,7 +97,6 @@ contract FeeCollector is IFeeCollector, AccessControl {
   @author Asaf Silman
   @notice Converts all registered fee tokens to WETH and deposits to
           fee treasury and smart treasury based on split allocations.
-  @notice fees which are sent to fee treasury are not converted to WETH.
   @dev The fees are swaped using Uniswap simple route. E.g. Token -> WETH.
    */
   function deposit(bool[] memory _depositTokensEnabled) public override smartTreasurySet onlyWhitelisted {
@@ -187,18 +186,15 @@ contract FeeCollector is IFeeCollector, AccessControl {
     allocations = _allocations;
   }
 
-  // /**
-  // @author Asaf Silman
-  // @notice Sets the fee treasury address.
-  // @dev the fee treasury address cannot be the 0 address.
-  // @param _feeTreasuryAddress the new fee treasury address.
-  //  */
-  // function setFeeTreasuryAddress(address _feeTreasuryAddress) external override onlyAdmin {
-  //   require(_feeTreasuryAddress!=address(0), "Fee treasury cannot be 0 address");
-
-  //   feeTreasuryAddress = _feeTreasuryAddress;
-  // }
-
+  /**
+  @author Asaf Silman
+  @notice Adds an address as a beneficiary to the idle fees
+  @dev The new beneficiary will be pushed to the end of the beneficiaries array.
+  The new allocations must include the new beneficiary
+  @dev There is a maximum of 5 beneficiaries which can be registered with the fee collector
+  @param _newBeneficiary The new beneficiary to add
+  @param _newAllocation The new allocation of fees including the new beneficiary
+   */
   function addBeneficiaryAddress(address _newBeneficiary, uint256[] calldata _newAllocation) external override smartTreasurySet onlyAdmin {
     require(beneficiaries.length < MAX_BENEFICIARIES, "Max beneficiaries");
     require(_newBeneficiary!=address(0), "beneficiary cannot be 0 address");
@@ -207,7 +203,17 @@ contract FeeCollector is IFeeCollector, AccessControl {
     setSplitAllocation(_newAllocation);
   }
 
-
+  /**
+  @author Asaf Silman
+  @notice removes a beneficiary at a given index.
+  @notice WARNING: when using this method be very careful to note the new allocations
+  The beneficiary at the LAST index, will be replaced with the beneficiary at `_index`.
+  The new allocations need to reflect this updated array.
+  @dev Cannot remove beneficiary past MIN_BENEFICIARIES. set to 2
+  @dev Cannot replace the smart treasury beneficiary at index 0
+  @param _index The index of the beneficiary to remove
+  @param _newAllocation The new allocation of fees removing the beneficiary. NOTE !! The order of beneficiaries will change !!
+   */
   function removeBeneficiaryAt(uint256 _index, uint256[] calldata _newAllocation) external override smartTreasurySet onlyAdmin {
     require(_index >= 1, "Invalid beneficiary to remove");
     require(beneficiaries.length > MIN_BENEFICIARIES, "Min beneficiaries");
@@ -219,6 +225,15 @@ contract FeeCollector is IFeeCollector, AccessControl {
     setSplitAllocation(_newAllocation); // NOTE THE ORDER OF ALLOCATIONS
   }
 
+  /**
+  @author Asaf Silman
+  @notice replaces a beneficiary at a given index with a new one
+  @notice a new allocation must be passed for this method
+  @dev Cannot replace the smart treasury beneficiary at index 0
+  @param _index The index of the beneficiary to replace
+  @param _newBeneficiary The new beneficiary address
+  @param _newAllocation The new allocation of fees
+  */
   function replaceBeneficiaryAt(uint256 _index, address _newBeneficiary, uint256[] calldata _newAllocation) external override smartTreasurySet onlyAdmin {
     require(_index >= 1, "Invalid beneficiary to remove");
     require(_newBeneficiary!=address(0), "Beneficiary cannot be 0 address");
