@@ -30,7 +30,6 @@ contract FeeCollector is IFeeCollector, AccessControl {
   IUniswapV2Router02 private uniswapRouterV2;
 
   address private weth;
-  IERC20 private wethInterface;
 
   // Need to use openzeppelin enumerableset
   EnumerableSet.AddressSet private depositTokens;
@@ -85,7 +84,6 @@ contract FeeCollector is IFeeCollector, AccessControl {
 
     // configure weth address and ERC20 interface
     weth = _weth;
-    wethInterface = IERC20(_weth);
 
     allocations = new uint256[](2); // setup fee split ratio
     allocations[0] = _ratio;
@@ -107,7 +105,6 @@ contract FeeCollector is IFeeCollector, AccessControl {
     require(_depositTokensEnabled.length == counter, "Invalid length");
 
     uint256 _currentBalance;
-    uint256 _feeToSmartTreasury;
     // uint256 _feeToFeeTreasury;
 
     uint256[] memory feeBalances;
@@ -122,42 +119,40 @@ contract FeeCollector is IFeeCollector, AccessControl {
       IERC20 _tokenInterface = IERC20(depositTokens.at(index));
 
       _currentBalance = _tokenInterface.balanceOf(address(this));
-      feeBalances = _amountsFromAllocations(allocations, _currentBalance);
       
       // Only swap if balance > 0
       if (_currentBalance > 0) {
-        _feeToSmartTreasury = feeBalances[0]; // fee sent to smartTreasury
-    
-        if (_currentBalance.sub(_feeToSmartTreasury)  > 0){
-          // NOTE: beneficiary_index starts at 1, NOT 0, since 0 is reserved for smart treasury
-          for (uint beneficiary_index = 1; beneficiary_index < beneficiaries.length; beneficiary_index++){
-            _tokenInterface.safeTransfer(beneficiaries[beneficiary_index], feeBalances[beneficiary_index]);
-          }
-        }
-
-        if (_feeToSmartTreasury > 0) {
-          // create simple route; token->WETH
-          
-          path[0] = depositTokens.at(index);
-          
-          // swap token
-          uniswapRouterV2.swapExactTokensForTokensSupportingFeeOnTransferTokens(
-            _feeToSmartTreasury,
-            0, 
-            path,
-            address(this),
-            block.timestamp
-          );
-        }
+        // create simple route; token->WETH
+        
+        path[0] = depositTokens.at(index);
+        
+        // swap token
+        uniswapRouterV2.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+          _currentBalance,
+          0, 
+          path,
+          address(this),
+          block.timestamp
+        );
       }
     }
 
     // deposit all swapped WETH into balancer pool
-    uint256 wethBalance = wethInterface.balanceOf(address(this));
+    uint256 wethBalance = IERC20(weth).balanceOf(address(this));
     if (wethBalance > 0){
-      ConfigurableRightsPool crp = ConfigurableRightsPool(beneficiaries[0]); // the smart treasury is at index 0
 
-      crp.joinswapExternAmountIn(weth, wethBalance, 0);
+      feeBalances = _amountsFromAllocations(allocations, wethBalance);
+      // _feeToSmartTreasury = feeBalances[0]; // fee sent to smartTreasury
+
+      if (wethBalance.sub(feeBalances[0]) > 0){
+          // NOTE: beneficiary_index starts at 1, NOT 0, since 0 is reserved for smart treasury
+          for (uint beneficiary_index = 1; beneficiary_index < beneficiaries.length; beneficiary_index++){
+            IERC20(weth).safeTransfer(beneficiaries[beneficiary_index], feeBalances[beneficiary_index]);
+          }
+        }
+
+      ConfigurableRightsPool crp = ConfigurableRightsPool(beneficiaries[0]); // the smart treasury is at index 0
+      crp.joinswapExternAmountIn(weth, feeBalances[0], 0);
     }
   }
 
@@ -183,7 +178,9 @@ contract FeeCollector is IFeeCollector, AccessControl {
     uint256 numTokens = depositTokens.length();
     bool[] memory depositTokensEnabled = new bool[](numTokens);
 
-    for (uint256 i=0; i<numTokens; i++) {depositTokensEnabled[i] = true;}
+    for (uint256 i=0; i<numTokens; i++) {
+      depositTokensEnabled[i] = true;
+    }
 
     deposit(depositTokensEnabled);
 
@@ -245,10 +242,10 @@ contract FeeCollector is IFeeCollector, AccessControl {
     // When contract is initialised, the smart treasury address is not yet set
     // Only call change allowance to 0 if previous smartTreasury was not the 0 address.
     if (beneficiaries[0] != address(0)) {
-      wethInterface.safeApprove(beneficiaries[0], 0); // set approval for previous fee address to 0
+      IERC20(weth).safeApprove(beneficiaries[0], 0); // set approval for previous fee address to 0
     }
     // max approval for new smartTreasuryAddress
-    wethInterface.safeIncreaseAllowance(_smartTreasuryAddress, uint256(-1));
+    IERC20(weth).safeIncreaseAllowance(_smartTreasuryAddress, uint256(-1));
     beneficiaries[0] = _smartTreasuryAddress;
   }
 

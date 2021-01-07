@@ -26,7 +26,7 @@ contract("FeeCollector", async accounts => {
 
     this.mockWETH = await mockWETH.new()
     this.mockDAI  = await mockDAI.new() // 600 dai == 1 WETH
-    this.mockIDLE = await mockIDLE.new() // 135 idle == 1 WETH == ~ $4.45
+    this.mockIDLE = await mockIDLE.new() // 135 idle == 1 WETH | 1 idle ~ $4.45
     
     // get uniswap pool
     this.mockWETH.approve(addresses.uniswapRouterAddress, constants.MAX_UINT256)
@@ -118,21 +118,25 @@ contract("FeeCollector", async accounts => {
       {from: accounts[0]}) // set split 50/50
     await instance.registerTokenToDepositList(this.mockDAI.address, {from: accounts[0]}) // whitelist dai
     
-    let feeTreasuryDaiBalanceBefore = BNify(await this.mockDAI.balanceOf.call(addresses.feeTreasuryAddress))
-    let smartTreasuryWethBalanceBefore = BNify(await this.mockWETH.balanceOf.call(this.crp.address))
+    let feeTreasuryWethBalanceBefore = BNify(await this.mockWETH.balanceOf.call(addresses.feeTreasuryAddress))
+    let smartTreasuryWethBalanceBefore = BNify(await this.mockWETH.balanceOf.call(this.bPool.address))
     // let smartTreasuryWethBalanceBefore = BNify(await wethContract.methods.balanceOf(meta.address).call()); 
     
     let depositAmount = web3.utils.toWei("500")
     await this.mockDAI.transfer(instance.address, depositAmount, {from: accounts[0]}) // 500 DAI
     await instance.deposit([true], {from: accounts[0]}) // call deposit
     
-    let feeTreasuryDaiBalanceAfter = BNify(await this.mockDAI.balanceOf.call(addresses.feeTreasuryAddress))
+    let feeTreasuryWethBalanceAfter = BNify(await this.mockWETH.balanceOf.call(addresses.feeTreasuryAddress))
     let smartTreasuryWethBalanceAfter = BNify(await this.mockWETH.balanceOf.call(this.bPool.address))     
     
     let balancerPoolTokenBalance = BNify(await this.crp.balanceOf.call(instance.address));
 
-    expect(feeTreasuryDaiBalanceAfter.sub(feeTreasuryDaiBalanceBefore)).to.be.bignumber.equal(BNify(depositAmount).div(BNify('2')))
-    expect(smartTreasuryWethBalanceAfter.sub(smartTreasuryWethBalanceBefore)).to.be.bignumber.that.is.greaterThan(BNify('0'))
+    let smartTreasuryWethBalanceDiff = smartTreasuryWethBalanceAfter.sub(smartTreasuryWethBalanceBefore)
+    let feeTreasuryWethBalanceDiff = feeTreasuryWethBalanceAfter.sub(feeTreasuryWethBalanceBefore)
+
+    expect(feeTreasuryWethBalanceDiff).to.be.bignumber.equal(smartTreasuryWethBalanceDiff)
+    expect(smartTreasuryWethBalanceDiff).to.be.bignumber.that.is.greaterThan(BNify('0'))
+    
     expect(balancerPoolTokenBalance).to.be.bignumber.that.is.greaterThan(BNify('0'))
   })
 
