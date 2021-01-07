@@ -15,7 +15,7 @@ const addresses = {
     // idle contracts
     feeTreasuryAddress: '0x69a62C24F16d4914a48919613e8eE330641Bcb94', // https://developers.idle.finance/contracts-and-codebase
     ecosystemFund: '0xb0aA1f98523Ec15932dd5fAAC5d86e57115571C7',
-    governanceAddress: '0x2256b25CFC8E35c3135664FD03E77595042fe31B',
+    governanceAddress: '0xD6dABBc2b275114a2366555d6C481EF08FDC2556', // timelock address
 
     // fee tokens
     feeTokens: [
@@ -44,7 +44,7 @@ const addresses = {
 
     feeTreasuryAddress: '0x69a62C24F16d4914a48919613e8eE330641Bcb94',
     ecosystemFund: '0xb0aA1f98523Ec15932dd5fAAC5d86e57115571C7',
-    governanceAddress: '0x782cB1dbd0bD4df95c2497819be3984EeA5c2c25',
+    governanceAddress: '0xfD88D7E737a06Aa9c62B950C1cB5eE63DA379AFd',
 
     feeTokens: [
       '0x4F96Fe3b7A6Cf9725f59d353F723c1bDb64CA6Aa' // DAI
