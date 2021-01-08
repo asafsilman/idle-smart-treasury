@@ -1,4 +1,4 @@
-const {BN, constants, expectRevert} = require('@openzeppelin/test-helpers')
+const {BN, constants, expectRevert, time} = require('@openzeppelin/test-helpers')
 
 const { expect } = require('chai');
 
@@ -12,32 +12,11 @@ const addresses = require("../migrations/addresses").development
 
 const BNify = n => new BN(String(n))
 const ONE = BNify('1000000000000000000') // 18 decimals
-const timelockDelay = 172800 * 15
-
-const advanceTime = async (timestamp) => {
-  return await new Promise((resolve, reject) => {
-    const payload = {
-      jsonrpc: "2.0",
-      method: "evm_mine",
-      id: 12345
-    }
-    if (timestamp) {
-      payload.params = [timestamp]
-    }
-    web3.currentProvider.send(payload, (err, res) => {
-      if (err) {
-        console.log('advance time err', err)
-        return reject(err)
-      }
-      // console.log('advance time ok', res);
-      return resolve({ok: true, res})
-    })
-  })
-}
+const timelockDelay = 172800
 
 const advanceBlocks = async n => {
   for (var i = 0; i < n; i++) {
-    await advanceTime()
+    await time.advanceBlock()
   }
 };
 
@@ -70,7 +49,8 @@ const executeProposal = async (gov, founder, {targets, values, signatures, calld
 
   const currTime2 = BNify((await web3.eth.getBlock(await web3.eth.getBlockNumber())).timestamp)
   bigLog2("The current block timestamp", currTime2)
-  await advanceTime(currTime2.add(BNify(timelockDelay)).add(BNify('100')))
+  // await advanceTime(BNify(timelockDelay)).add(BNify('100'))
+  await time.increase(timelockDelay+100)
   await advanceBlocks(1)
 
   const currTime3 = BNify((await web3.eth.getBlock(await web3.eth.getBlockNumber())).timestamp)
@@ -86,7 +66,7 @@ describe("Test Proposal", async function() {
   it("Creates and executes proposal", async function() {
     const founder = addresses._founder
     const idleInstance = await IIdle.at(addresses.idle)
-    const govInstance = await IGovernorAlpha.at(addresses.governanceAddress)
+    const govInstance = await IGovernorAlpha.at(addresses.governor)
     const vesterFactory = await IVesterFactory.at(addresses._vesterFactory)
 
     const founderVesting = await vesterFactory.vestingContracts.call(founder);

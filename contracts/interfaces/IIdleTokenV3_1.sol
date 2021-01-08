@@ -65,4 +65,6 @@ interface IIdleTokenV3_1 {
    * @return : whether has rebalanced or not
    */
   function rebalance() external returns (bool);
+
+  function feeAddress() external returns (address);
 }
