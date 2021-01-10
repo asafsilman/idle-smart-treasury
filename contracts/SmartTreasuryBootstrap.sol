@@ -45,7 +45,7 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
 
   EnumerableSet.AddressSet private depositTokens;
 
-  address governanceAddress;
+  address timelock;
   address feeCollectorAddress;
 
   /**
@@ -59,7 +59,7 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
   @param _uniswapRouter Uniswap router address
   @param _idle IDLE governance token address
   @param _weth WETH token address
-  @param _governanceAddress address of IDLE governor
+  @param _timelock address of IDLE timelock
   @param _feeCollectorAddress address of IDLE fee collector
    */
   constructor (
@@ -68,7 +68,7 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
     address _uniswapRouter,
     address _idle,
     address _weth,
-    address _governanceAddress,
+    address _timelock,
     address _feeCollectorAddress
   ) public {
 
@@ -84,7 +84,7 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
     weth = IERC20(_weth);
 
     // configure network addresses
-    governanceAddress = _governanceAddress;
+    timelock = _timelock;
     feeCollectorAddress = _feeCollectorAddress;
 
     renounced = false; // flag to indicate whether renounce has been called
@@ -189,7 +189,7 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
     // A balancer pool with canWhitelistLPs does not initially whitelist the controller
     // This must be manually set
     crp.whitelistLiquidityProvider(address(this));
-    crp.whitelistLiquidityProvider(governanceAddress);
+    crp.whitelistLiquidityProvider(timelock);
     crp.whitelistLiquidityProvider(feeCollectorAddress);
 
     crpaddress = address(crp);
@@ -243,7 +243,7 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
     require(address(crp.bPool()) != address(0), "Cannot renounce if bPool does not exist");
 
     crp.removeWhitelistedLiquidityProvider(address(this));
-    crp.setController(governanceAddress);
+    crp.setController(timelock);
 
     // transfer using safe transfer
     IERC20(crpaddress).safeTransfer(feeCollectorAddress, crp.balanceOf(address(this)));
@@ -301,4 +301,5 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
 
   function _getCRPAddress() external view returns (address) { return crpaddress; }
   function _getCRPBPoolAddress() external view returns (address) {return address(ConfigurableRightsPool(crpaddress).bPool());}
+  function _tokenInDepositList(address _tokenAddress) external view returns (bool) {return depositTokens.contains(_tokenAddress);}
 }

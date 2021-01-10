@@ -3,8 +3,6 @@ const SmartTreasuryBootstrap = artifacts.require("SmartTreasuryBootstrap");
 const FeeCollector = artifacts.require("FeeCollector");
 
 const {BN} = require('@openzeppelin/test-helpers');
-
-
 const BNify = n => new BN(String(n));
 
 module.exports = function (deployer, network) {
@@ -26,7 +24,7 @@ module.exports = function (deployer, network) {
         _addresses.uniswapRouterAddress,
         _addresses.idle,
         _addresses.weth,
-        _addresses.governanceAddress,
+        _addresses.timelock,
         FeeCollector.address
       )
     })

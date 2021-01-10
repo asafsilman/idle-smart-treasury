@@ -15,7 +15,7 @@ const addresses = {
     // idle contracts
     feeTreasuryAddress: '0x69a62C24F16d4914a48919613e8eE330641Bcb94', // https://developers.idle.finance/contracts-and-codebase
     ecosystemFund: '0xb0aA1f98523Ec15932dd5fAAC5d86e57115571C7',
-    governanceAddress: '0xD6dABBc2b275114a2366555d6C481EF08FDC2556', // timelock address
+    timelock: '0xD6dABBc2b275114a2366555d6C481EF08FDC2556', // timelock address
     governor: '0x2256b25CFC8E35c3135664FD03E77595042fe31B',
 
     // fee tokens
@@ -28,6 +28,8 @@ const addresses = {
       '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', // usdc
       '0xc00e94cb662c3520282e6f5717214004a7f26888'  // comp
     ],
+
+    multisig: "0xe8eA8bAE250028a8709A3841E0Ae1a44820d677b",
 
     _founder: "0x3675D2A334f17bCD4689533b7Af263D48D96eC72",
     _vesterFactory: "0xbF875f2C6e4Cc1688dfe4ECf79583193B6089972"
@@ -45,7 +47,7 @@ const addresses = {
 
     feeTreasuryAddress: '0x69a62C24F16d4914a48919613e8eE330641Bcb94',
     ecosystemFund: '0xb0aA1f98523Ec15932dd5fAAC5d86e57115571C7',
-    governanceAddress: '0xfD88D7E737a06Aa9c62B950C1cB5eE63DA379AFd',
+    timelock: '0xfD88D7E737a06Aa9c62B950C1cB5eE63DA379AFd',
     governor: '0x782cB1dbd0bD4df95c2497819be3984EeA5c2c25',
 
     feeTokens: [
