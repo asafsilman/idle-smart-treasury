@@ -56,10 +56,13 @@ module.exports = async function (_deployer, network) {
   let bootstrapInstance = await SmartTreasuryBootstrap.deployed()
 
   let proposal = {
-    targets: [],
-    values: [],
-    signatures: [],
-    calldatas: [],
+    targets: [_addresses.ecosystemFund],
+    values: [BNify("0")],
+    signatures: ["transfer(address,address,uint256)"],
+    calldatas: [web3.eth.abi.encodeParameters(
+      ['address', 'address', 'uint256'],
+      [_addresses.idle, bootstrapInstance.address, web3.utils.toWei(BNify("130000"))]
+    )],
     description: 'Test',
     from: _addresses._founder
   }

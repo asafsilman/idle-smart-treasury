@@ -16,6 +16,6 @@ module.exports = async function (deployer, network) {
     });
     return instance
   }).then(function (instance) {
-    instance.replaceAdmin(_addresses.timelock)
+    instance.replaceAdmin(_addresses.multisig)
   })
 }
