@@ -15,7 +15,8 @@ const addresses = {
     // idle contracts
     feeTreasuryAddress: '0x69a62C24F16d4914a48919613e8eE330641Bcb94', // https://developers.idle.finance/contracts-and-codebase
     ecosystemFund: '0xb0aA1f98523Ec15932dd5fAAC5d86e57115571C7',
-    governanceAddress: '0xD6dABBc2b275114a2366555d6C481EF08FDC2556', // timelock address
+    timelock: '0xD6dABBc2b275114a2366555d6C481EF08FDC2556', // timelock address
+    governor: '0x2256b25CFC8E35c3135664FD03E77595042fe31B',
 
     // fee tokens
     feeTokens: [
@@ -26,7 +27,24 @@ const addresses = {
       '0xdac17f958d2ee523a2206206994597c13d831ec7', // tusd
       '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', // usdc
       '0xc00e94cb662c3520282e6f5717214004a7f26888'  // comp
-    ]
+    ],
+
+    idleTokens: [
+      "0x3fE7940616e5Bc47b0775a0dccf6237893353bB4", // IdleDAI Best Yield
+      "0x5274891bEC421B39D23760c04A6755eCB444797C", // IdleUSDC Best Yield
+      "0xF34842d05A1c888Ca02769A633DF37177415C2f8", // IdleUSDT Best Yield
+      "0xf52cdcd458bf455aed77751743180ec4a595fd3f", // IdleSUSD Best Yield
+      "0xc278041fDD8249FE4c1Aad1193876857EEa3D68c", // IdleTUSD Best Yield
+      "0x8C81121B15197fA0eEaEE1DC75533419DcfD3151", // IdleWBTC Best Yield
+      "0xa14eA0E11121e6E951E87c66AFe460A00BCD6A16", // IdleDAI Risk Adjusted
+      "0x3391bc034f2935ef0e1e41619445f998b2680d35", // IdleUSDC Risk Adjusted
+      "0x28fAc5334C9f7262b3A3Fe707e250E01053e07b5" // IdleUSDT Risk Adjusted
+    ],
+
+    multisig: "0xe8eA8bAE250028a8709A3841E0Ae1a44820d677b",
+
+    _founder: "0x3675D2A334f17bCD4689533b7Af263D48D96eC72",
+    _vesterFactory: "0xbF875f2C6e4Cc1688dfe4ECf79583193B6089972"
   },
   kovan: {
     uniswapFactory: '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f',
@@ -41,7 +59,8 @@ const addresses = {
 
     feeTreasuryAddress: '0x69a62C24F16d4914a48919613e8eE330641Bcb94',
     ecosystemFund: '0xb0aA1f98523Ec15932dd5fAAC5d86e57115571C7',
-    governanceAddress: '0xfD88D7E737a06Aa9c62B950C1cB5eE63DA379AFd',
+    timelock: '0xfD88D7E737a06Aa9c62B950C1cB5eE63DA379AFd',
+    governor: '0x782cB1dbd0bD4df95c2497819be3984EeA5c2c25',
 
     feeTokens: [
       '0x4F96Fe3b7A6Cf9725f59d353F723c1bDb64CA6Aa' // DAI

@@ -55,8 +55,8 @@ contract('SmartTreasuryBootstrap', async accounts => {
       addresses.uniswapRouterAddress,
       this.mockIDLE.address,
       this.mockWETH.address,
-      addresses.governanceAddress,
-      addresses.governanceAddress // set the feecollector as governance for the time being
+      addresses.ftimelock,
+      addresses.timelock // set the feecollector as governance for the time being
     )
 
     await this.smartTreasuryBootstrapInstance._registerTokenToDepositList(this.mockDAI.address)

@@ -1,10 +1,7 @@
 const addresses = require('./addresses');
-const SmartTreasuryBootstrap = artifacts.require("SmartTreasuryBootstrap");
 const FeeCollector = artifacts.require("FeeCollector");
 
 const {BN} = require('@openzeppelin/test-helpers');
-
-
 const BNify = n => new BN(String(n));
 
 module.exports = function (deployer, network) {
@@ -19,15 +16,5 @@ module.exports = function (deployer, network) {
     _addresses.weth,
     _addresses.feeTreasuryAddress,
     BNify('80000') // 80% to smart treasury
-    ).then(function() {
-      deployer.deploy(SmartTreasuryBootstrap,
-        _addresses.balancerCoreFactory,
-        _addresses.balancerCRPFactory,
-        _addresses.uniswapRouterAddress,
-        _addresses.idle,
-        _addresses.weth,
-        _addresses.governanceAddress,
-        FeeCollector.address
-      )
-    })
+    )
 }
