@@ -11,7 +11,6 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 
 import '@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol';
 import '@uniswap/v2-periphery/contracts/libraries/UniswapV2OracleLibrary.sol';
-import '@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol';
 import '@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol';
 
 import "./interfaces/ISmartTreasuryBootstrap.sol";
@@ -37,7 +36,6 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
   IBFactory private balancer_bfactory;
   ICRPFactory private balancer_crpfactory;
 
-  IUniswapV2Factory private uniswapFactory;
   IUniswapV2Router02 private uniswapRouterV2;
 
   IERC20 private idle;
