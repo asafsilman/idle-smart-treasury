@@ -14,11 +14,12 @@ module.exports = async function (deployer, network) {
   await deployer.deploy(SmartTreasuryBootstrap,
     _addresses.balancerCoreFactory,
     _addresses.balancerCRPFactory,
-    _addresses.uniswapRouterAddress,
+    // _addresses.uniswapRouterAddress,
     _addresses.idle,
     _addresses.weth,
     _addresses.timelock,
     feeCollectorInstance.address,
+    _addresses.multisig,
     _addresses.feeTokens
   )
 }

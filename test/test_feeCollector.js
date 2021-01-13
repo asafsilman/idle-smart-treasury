@@ -79,6 +79,7 @@ contract("FeeCollector", async accounts => {
       this.mockWETH.address,
       addresses.feeTreasuryAddress,
       BNify('0'), // all to fee treasury
+      accounts[0],
       []
     )
     

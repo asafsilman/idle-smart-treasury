@@ -70,6 +70,7 @@ contract FeeCollector is IFeeCollector, AccessControl {
   @param _weth The wrapped ethereum address.
   @param _feeTreasuryAddress The address of idle's fee treasury.
   @param _ratio Initial fee split ratio allocations between smart treasury and fee treasury.
+  @param _multisig The multisig account to transfer ownership to after contract initialised
   @param _initialDepositTokens The initial tokens to register with the fee deposit
    */
   constructor (
@@ -77,15 +78,17 @@ contract FeeCollector is IFeeCollector, AccessControl {
     address _weth,
     address _feeTreasuryAddress,
     uint256 _ratio,
+    address _multisig,
     address[] memory _initialDepositTokens
   ) public {
     require(_uniswapRouter != address(0), "Uniswap router cannot be 0 address");
     require(_weth != address(0), "WETH cannot be the 0 address");
     require(_feeTreasuryAddress != address(0), "Fee Treasury cannot be 0 address");
     require(_ratio <= 100000, "Ratio is too high");
+    require(_multisig != address(0), "Multisig cannot be 0 address");
     
-    _setupRole(DEFAULT_ADMIN_ROLE, msg.sender); // setup deployed as admin
-    _setupRole(WHITELISTED, msg.sender); // setup admin as whitelisted address
+    _setupRole(DEFAULT_ADMIN_ROLE, _multisig); // setup multisig as admin
+    _setupRole(WHITELISTED, _multisig); // setup multisig as whitelisted address
     
     uniswapRouterV2 = IUniswapV2Router02(_uniswapRouter); // configure uniswap router
 
@@ -396,7 +399,7 @@ contract FeeCollector is IFeeCollector, AccessControl {
    */
   function replaceAdmin(address _newAdmin) external override onlyAdmin {
     grantRole(DEFAULT_ADMIN_ROLE, _newAdmin);
-    revokeRole(DEFAULT_ADMIN_ROLE, msg.sender); // caller must be 
+    revokeRole(DEFAULT_ADMIN_ROLE, msg.sender); // caller must be admin
   }
 
   function getSplitAllocation() external view returns (uint256[] memory) { return (allocations); }

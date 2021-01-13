@@ -27,6 +27,9 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
   using SafeERC20 for IERC20;
   using SafeMath for uint256;
 
+  address timelock;
+  address feeCollectorAddress;
+
   address private crpaddress;
 
   uint private idlePerWeth; // internal price oracle for IDLE
@@ -43,9 +46,6 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
 
   EnumerableSet.AddressSet private depositTokens;
 
-  address timelock;
-  address feeCollectorAddress;
-
   /**
   @author Asaf Silman
   @notice Initialises the bootstrap contract.
@@ -54,30 +54,41 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
   @dev Configures IDLE and WETH token
   @param _balancerBFactory Balancer core factory
   @param _balancerBFactory Balancer configurable rights pool (CRP) factory
-  @param _uniswapRouter Uniswap router address
   @param _idle IDLE governance token address
   @param _weth WETH token address
   @param _timelock address of IDLE timelock
   @param _feeCollectorAddress address of IDLE fee collector
+  @param _multisig The multisig account to transfer ownership to after contract initialised
   @param _initialDepositTokens The initial tokens to register with the fee deposit
    */
   constructor (
     address _balancerBFactory,
     address _balancerCRPFactory,
-    address _uniswapRouter,
     address _idle,
     address _weth,
     address _timelock,
     address _feeCollectorAddress,
+    address _multisig,
     address[] memory _initialDepositTokens
   ) public {
+    require(_balancerBFactory != address(0), "BFactory cannot be the 0 address");
+    require(_balancerCRPFactory != address(0), "CRPFactory cannot be the 0 address");
+    // require(_uniswapRouter != address(0), "Router cannot be the 0 address");
+    require(_idle != address(0), "IDLE cannot be the 0 address");
+    require(_weth != address(0), "WETH cannot be the 0 address");
+    require(_timelock != address(0), "Timelock cannot be the 0 address");
+    require(_feeCollectorAddress != address(0), "FeeCollector cannot be the 0 address");
+    require(_multisig != address(0), "Multisig cannot be 0 address");
 
     // initialise balancer factories
     balancer_bfactory = IBFactory(_balancerBFactory);
     balancer_crpfactory = ICRPFactory(_balancerCRPFactory);
 
     // configure uniswap router
-    uniswapRouterV2 = IUniswapV2Router02(_uniswapRouter);
+
+    // hardcoded as this value is the same across all networks
+    // https://uniswap.org/docs/v2/smart-contracts/router02
+    uniswapRouterV2 = IUniswapV2Router02(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
 
     // configure tokens
     idle = IERC20(_idle);
@@ -93,6 +104,8 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
       require(_initialDepositTokens[index] != address(0), "Token cannot be  0 address");
       depositTokens.add(_initialDepositTokens[index]);
     }
+
+    transferOwnership(_multisig);
   }
 
   /**

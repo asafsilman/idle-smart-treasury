@@ -52,11 +52,12 @@ contract('SmartTreasuryBootstrap', async accounts => {
     this.smartTreasuryBootstrapInstance = await SmartTreasuryBootstrap.new(
       addresses.balancerCoreFactory,
       addresses.balancerCRPFactory,
-      addresses.uniswapRouterAddress,
+      // addresses.uniswapRouterAddress,
       this.mockIDLE.address,
       this.mockWETH.address,
       addresses.timelock,
       addresses.timelock, // set the feecollector as governance for the time being
+      accounts[0],
       []
     )
 

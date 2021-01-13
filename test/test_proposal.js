@@ -62,38 +62,38 @@ const executeProposal = async (gov, founder, {targets, values, signatures, calld
   await advanceBlocks(2);
 };
 
-describe("Test Proposal", async function() {
-  it("Creates and executes proposal", async function() {
-    const founder = addresses._founder
-    const idleInstance = await IIdle.at(addresses.idle)
-    const govInstance = await IGovernorAlpha.at(addresses.governor)
-    const vesterFactory = await IVesterFactory.at(addresses._vesterFactory)
+// describe("Test Proposal", async function() {
+//   it("Creates and executes proposal", async function() {
+//     const founder = addresses._founder
+//     const idleInstance = await IIdle.at(addresses.idle)
+//     const govInstance = await IGovernorAlpha.at(addresses.governor)
+//     const vesterFactory = await IVesterFactory.at(addresses._vesterFactory)
 
-    const founderVesting = await vesterFactory.vestingContracts.call(founder);
-    console.log(founderVesting)
-    const vesterFounder = await IVester.at(founderVesting);
+//     const founderVesting = await vesterFactory.vestingContracts.call(founder);
+//     console.log(founderVesting)
+//     const vesterFounder = await IVester.at(founderVesting);
 
-    bigLog('bal of vesting contract', await idleInstance.balanceOf(vesterFounder.address));
-    await idleInstance.delegate(founder, {from: founder});
-    console.log('delegates founder to founder');
-    await vesterFounder.setDelegate(founder, {from: founder});
-    console.log('delegates vesterFounder to founder');
+//     bigLog('bal of vesting contract', await idleInstance.balanceOf(vesterFounder.address));
+//     await idleInstance.delegate(founder, {from: founder});
+//     console.log('delegates founder to founder');
+//     await vesterFounder.setDelegate(founder, {from: founder});
+//     console.log('delegates vesterFounder to founder');
 
-    const feeCollectorInstance = await FeeCollector.new(
-      addresses.uniswapRouterAddress,
-      addresses.weth,
-      addresses.feeTreasuryAddress,
-      BNify('0'),
-      []
-    )
+//     const feeCollectorInstance = await FeeCollector.new(
+//       addresses.uniswapRouterAddress,
+//       addresses.weth,
+//       addresses.feeTreasuryAddress,
+//       BNify('0'),
+//       []
+//     )
 
-    await executeProposal(govInstance, founder, {
-      targets: ["0x3fe7940616e5bc47b0775a0dccf6237893353bb4"], // targets //Idle Dai  v4
-      values: [BNify('0')], // values
-      signatures: ["setFeeAddress(address)"], // signatures
-      calldatas: [web3.eth.abi.encodeParameters(['address'], [feeCollectorInstance.address])], // calldatas
-      description: 'Test',
-      from: founder
-    });
-  })
-})
+//     await executeProposal(govInstance, founder, {
+//       targets: ["0x3fe7940616e5bc47b0775a0dccf6237893353bb4"], // targets //Idle Dai  v4
+//       values: [BNify('0')], // values
+//       signatures: ["setFeeAddress(address)"], // signatures
+//       calldatas: [web3.eth.abi.encodeParameters(['address'], [feeCollectorInstance.address])], // calldatas
+//       description: 'Test',
+//       from: founder
+//     });
+//   })
+// })

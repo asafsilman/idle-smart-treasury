@@ -16,6 +16,7 @@ module.exports = function (deployer, network) {
     _addresses.weth,
     _addresses.feeTreasuryAddress,
     BNify('80000'), // 80% to smart treasury
+    _addresses.multisig,
     _addresses.feeTokens
     )
 }
