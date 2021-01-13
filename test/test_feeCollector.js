@@ -78,7 +78,8 @@ contract("FeeCollector", async accounts => {
       addresses.uniswapRouterAddress,
       this.mockWETH.address,
       addresses.feeTreasuryAddress,
-      BNify('0') // all to fee treasury
+      BNify('0'), // all to fee treasury
+      []
     )
     
     // Whitelist feeCollector as liquidity provider

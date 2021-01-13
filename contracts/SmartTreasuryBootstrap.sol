@@ -59,6 +59,7 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
   @param _weth WETH token address
   @param _timelock address of IDLE timelock
   @param _feeCollectorAddress address of IDLE fee collector
+  @param _initialDepositTokens The initial tokens to register with the fee deposit
    */
   constructor (
     address _balancerBFactory,
@@ -67,7 +68,8 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
     address _idle,
     address _weth,
     address _timelock,
-    address _feeCollectorAddress
+    address _feeCollectorAddress,
+    address[] memory _initialDepositTokens
   ) public {
 
     // initialise balancer factories
@@ -86,6 +88,11 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
     feeCollectorAddress = _feeCollectorAddress;
 
     renounced = false; // flag to indicate whether renounce has been called
+
+    for (uint256 index = 0; index < _initialDepositTokens.length; index++) {
+      require(_initialDepositTokens[index] != address(0), "Token cannot be  0 address");
+      depositTokens.add(_initialDepositTokens[index]);
+    }
   }
 
   /**

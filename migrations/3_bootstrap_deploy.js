@@ -18,7 +18,8 @@ module.exports = async function (deployer, network) {
     _addresses.idle,
     _addresses.weth,
     _addresses.timelock,
-    feeCollectorInstance.address
+    feeCollectorInstance.address,
+    _addresses.feeTokens
   )
 }
 

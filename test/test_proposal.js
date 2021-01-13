@@ -83,7 +83,8 @@ describe("Test Proposal", async function() {
       addresses.uniswapRouterAddress,
       addresses.weth,
       addresses.feeTreasuryAddress,
-      BNify('0')
+      BNify('0'),
+      []
     )
 
     await executeProposal(govInstance, founder, {

@@ -8,14 +8,7 @@ module.exports = async function (deployer, network) {
 
   _addresses = addresses[network]
 
-  deployer.then(function() {
-    return SmartTreasuryBootstrap.deployed()
-  }).then(function (instance) {
-    _addresses.feeTokens.forEach(element => {
-      instance._registerTokenToDepositList(element)
-    });
-    return instance
-  }).then(function (instance) {
-    instance.transferOwnership(_addresses.multisig)
-  })
+  let smartTreasuryBootstrapInstance = await SmartTreasuryBootstrap.deployed()
+  smartTreasuryBootstrapInstance.transferOwnership(_addresses.multisig)
+
 }

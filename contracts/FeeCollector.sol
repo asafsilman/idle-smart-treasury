@@ -70,8 +70,15 @@ contract FeeCollector is IFeeCollector, AccessControl {
   @param _weth The wrapped ethereum address.
   @param _feeTreasuryAddress The address of idle's fee treasury.
   @param _ratio Initial fee split ratio allocations between smart treasury and fee treasury.
+  @param _initialDepositTokens The initial tokens to register with the fee deposit
    */
-  constructor (address _uniswapRouter, address _weth, address _feeTreasuryAddress, uint256 _ratio) public {
+  constructor (
+    address _uniswapRouter,
+    address _weth,
+    address _feeTreasuryAddress,
+    uint256 _ratio,
+    address[] memory _initialDepositTokens
+  ) public {
     require(_uniswapRouter != address(0), "Uniswap router cannot be 0 address");
     require(_weth != address(0), "WETH cannot be the 0 address");
     require(_feeTreasuryAddress != address(0), "Fee Treasury cannot be 0 address");
@@ -91,6 +98,11 @@ contract FeeCollector is IFeeCollector, AccessControl {
     
     beneficiaries = new address[](2); // setup benefifiaries
     beneficiaries[1] = _feeTreasuryAddress; // setup fee treasury address
+
+    for (uint256 index = 0; index < _initialDepositTokens.length; index++) {
+      require(_initialDepositTokens[index] != address(0), "Token cannot be  0 address");
+      depositTokens.add(_initialDepositTokens[index]);
+    }
   }
 
   /**

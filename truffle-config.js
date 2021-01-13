@@ -47,8 +47,13 @@ module.exports = {
      port: 8545,            // Standard Ethereum port (default: none)
      network_id: "*",       // Any network (default: none)
      skipDryRun: true
-    //  unlocked_accounts:["0x3675D2A334f17bCD4689533b7Af263D48D96eC72"]
     },
+    test: {
+      host: "127.0.0.1",     // Localhost (default: none)
+      port: 8545,            // Standard Ethereum port (default: none)
+      network_id: "*",       // Any network (default: none)
+      skipDryRun: true
+     },
     // Another network with more advanced options...
     // advanced: {
     // port: 8777,             // Custom port

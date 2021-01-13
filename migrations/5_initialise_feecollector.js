@@ -8,14 +8,7 @@ module.exports = async function (deployer, network) {
 
   _addresses = addresses[network]
 
-  deployer.then(function() {
-    return FeeCollector.deployed()
-  }).then(function (instance) {
-    _addresses.feeTokens.forEach(element => {
-      instance.registerTokenToDepositList(element)
-    });
-    return instance
-  }).then(function (instance) {
-    instance.replaceAdmin(_addresses.multisig)
-  })
+  let feeCollectorInstance = await FeeCollector.deployed()
+
+  feeCollectorInstance.replaceAdmin(_addresses.multisig)
 }
