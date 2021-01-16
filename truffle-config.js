@@ -64,6 +64,9 @@ module.exports = {
       network_id: "*",       // Any network (default: none)
       skipDryRun: true
      },
+     teams: {
+      url: "https://sandbox.truffleteams.com/b5bbeab5-b0a9-4b8d-99fb-2b44ad719294",
+     },
     // Another network with more advanced options...
     // advanced: {
     // port: 8777,             // Custom port
