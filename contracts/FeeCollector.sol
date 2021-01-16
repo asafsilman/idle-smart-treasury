@@ -104,6 +104,8 @@ contract FeeCollector is IFeeCollector, AccessControl {
 
     for (uint256 index = 0; index < _initialDepositTokens.length; index++) {
       require(_initialDepositTokens[index] != address(0), "Token cannot be  0 address");
+
+      IERC20(_initialDepositTokens[index]).safeIncreaseAllowance(address(uniswapRouterV2), uint256(-1)); // max approval
       depositTokens.add(_initialDepositTokens[index]);
     }
   }

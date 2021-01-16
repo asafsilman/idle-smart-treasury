@@ -102,6 +102,8 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
 
     for (uint256 index = 0; index < _initialDepositTokens.length; index++) {
       require(_initialDepositTokens[index] != address(0), "Token cannot be  0 address");
+
+      IERC20(_initialDepositTokens[index]).safeIncreaseAllowance(address(uniswapRouterV2), uint256(-1)); // max approval
       depositTokens.add(_initialDepositTokens[index]);
     }
 
@@ -117,15 +119,17 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
    */
   function swap() external override onlyOwner {
     uint counter = depositTokens.length();
+
+    address[] memory path = new address[](2);
+    path[1] = address(weth);
+
     for (uint index = 0; index < counter; index++) {
       address _tokenAddress = depositTokens.at(index);
       IERC20 _tokenInterface = IERC20(_tokenAddress);
 
       uint256 _currentBalance = _tokenInterface.balanceOf(address(this));
 
-      address[] memory path = new address[](2);
       path[0] = _tokenAddress;
-      path[1] = address(weth);
       
       uniswapRouterV2.swapExactTokensForTokensSupportingFeeOnTransferTokens(
         _currentBalance,
