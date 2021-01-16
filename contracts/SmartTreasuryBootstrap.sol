@@ -32,7 +32,7 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
 
   address private crpaddress;
 
-  uint private idlePerWeth; // internal price oracle for IDLE
+  uint256 private idlePerWeth; // internal price oracle for IDLE
 
   bool private renounced;
 
@@ -73,7 +73,6 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
   ) public {
     require(_balancerBFactory != address(0), "BFactory cannot be the 0 address");
     require(_balancerCRPFactory != address(0), "CRPFactory cannot be the 0 address");
-    // require(_uniswapRouter != address(0), "Router cannot be the 0 address");
     require(_idle != address(0), "IDLE cannot be the 0 address");
     require(_weth != address(0), "WETH cannot be the 0 address");
     require(_timelock != address(0), "Timelock cannot be the 0 address");
@@ -118,12 +117,12 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
   @dev After this has been called, `swap()` should be called.
    */
   function swap() external override onlyOwner {
-    uint counter = depositTokens.length();
+    uint256 counter = depositTokens.length();
 
     address[] memory path = new address[](2);
     path[1] = address(weth);
 
-    for (uint index = 0; index < counter; index++) {
+    for (uint256 index = 0; index < counter; index++) {
       address _tokenAddress = depositTokens.at(index);
       IERC20 _tokenInterface = IERC20(_tokenAddress);
 
@@ -151,8 +150,8 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
   function initialise() external override onlyOwner {
     require(crpaddress==address(0), "Cannot initialise if CRP already exists");
     
-    uint idleBalance = idle.balanceOf(address(this));
-    uint wethBalance = weth.balanceOf(address(this));
+    uint256 idleBalance = idle.balanceOf(address(this));
+    uint256 wethBalance = weth.balanceOf(address(this));
 
     require(idleBalance > 0, "Cannot initialise without idle in contract");
     require(wethBalance > 0, "Cannot initialise without weth in contract");
@@ -161,15 +160,15 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
     tokens[0] = address(idle);
     tokens[1] = address(weth);
 
-    uint[] memory balances = new uint[](2);
+    uint256[] memory balances = new uint256[](2);
     balances[0] = idleBalance;
     balances[1] = wethBalance;
 
     
-    uint idleValueInWeth = balances[0].mul(10**18).div(idlePerWeth);
-    uint wethValue = balances[1];
+    uint256 idleValueInWeth = balances[0].mul(10**18).div(idlePerWeth);
+    uint256 wethValue = balances[1];
 
-    uint totalValueInPool = idleValueInWeth.add(wethValue); // expressed in WETH
+    uint256 totalValueInPool = idleValueInWeth.add(wethValue); // expressed in WETH
 
     // Sum of weights need to be in range B_ONE <= W_x <= B_ONE * 50
     //
@@ -178,7 +177,7 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
     // weight_x = ( value_x / total_pool_value ) * B_ONE * 48 + B_ONE
     //          = (( value_x * B_ONE * 48) / total_pool_value) + B_ONE
     //
-    uint[] memory weights = new uint[](2);
+    uint256[] memory weights = new uint256[](2);
     weights[0] = idleValueInWeth.mul(BalancerConstants.BONE * 48).div(totalValueInPool).add(BalancerConstants.BONE); // total value / num IDLE tokens
     weights[1] = wethValue.mul(BalancerConstants.BONE * 48).div(totalValueInPool).add(BalancerConstants.BONE); // total value / num WETH tokens
 
@@ -238,7 +237,7 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
       3 days  // addTokenTimeLockInBlocksParam
     );
 
-    uint[] memory finalWeights = new uint[](2);
+    uint256[] memory finalWeights = new uint256[](2);
     finalWeights[0] = 45 * BalancerConstants.BONE; // 90 %
     finalWeights[1] = 5  * BalancerConstants.BONE; // 10 %
 
@@ -257,7 +256,6 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
   @notice Transfers balancer liquidity tokens to fee collector
    */
   function renounce() external override onlyOwner {
-    require(feeCollectorAddress != address(0), "Fee Collector Address is not set");
     require(crpaddress != address(0), "Cannot renounce if CRP does not exist");
 
     ConfigurableRightsPool crp = ConfigurableRightsPool(crpaddress);
@@ -280,8 +278,8 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
   @param _toAddress The destination address.
   @param _amount The amount to transfer.
    */
-  function withdraw(address _token, address _toAddress, uint256 _amount) external onlyOwner {
-    require(renounced==true, "Can only withdraw after contract is renounced");
+  function withdraw(address _token, address _toAddress, uint256 _amount) external {
+    require((msg.sender == owner() && renounced == true) || msg.sender == timelock, "Only admin");
 
     IERC20 token = IERC20(_token);
     token.safeTransfer(_toAddress, _amount);
@@ -293,7 +291,7 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
   @dev expressed in Wei
   @param _idlePerWeth idle price per weth expressed in Wei
    */
-  function _setIDLEPrice(uint _idlePerWeth) external onlyOwner {
+  function _setIDLEPrice(uint256 _idlePerWeth) external onlyOwner {
     idlePerWeth = _idlePerWeth;
   }
 

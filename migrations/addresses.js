@@ -43,6 +43,8 @@ const addresses = {
 
     multisig: "0xe8eA8bAE250028a8709A3841E0Ae1a44820d677b",
 
+    idleRebalancer: "0xb3c8e5534f0063545cbbb7ce86854bf42db8872b",
+
     _founder: "0x3675D2A334f17bCD4689533b7Af263D48D96eC72",
     _vesterFactory: "0xbF875f2C6e4Cc1688dfe4ECf79583193B6089972"
   },
