@@ -121,7 +121,6 @@ contract FeeCollector is IFeeCollector, AccessControl {
     require(_depositTokensEnabled.length == counter, "Invalid length");
 
     uint256 _currentBalance;
-    // uint256 _feeToFeeTreasury;
 
     uint256[] memory feeBalances;
 
@@ -153,7 +152,9 @@ contract FeeCollector is IFeeCollector, AccessControl {
       }
     }
 
-    // deposit all swapped WETH into balancer pool
+    // deposit all swapped WETH + the already present weth balance
+    // to beneficiaries
+    // the beneficiary at index 0 is the smart treasury
     uint256 wethBalance = IERC20(weth).balanceOf(address(this));
     if (wethBalance > 0){
 
@@ -162,13 +163,15 @@ contract FeeCollector is IFeeCollector, AccessControl {
 
       if (wethBalance.sub(feeBalances[0]) > 0){
           // NOTE: beneficiary_index starts at 1, NOT 0, since 0 is reserved for smart treasury
-          for (uint beneficiary_index = 1; beneficiary_index < beneficiaries.length; beneficiary_index++){
+          for (uint256 beneficiary_index = 1; beneficiary_index < beneficiaries.length; beneficiary_index++){
             IERC20(weth).safeTransfer(beneficiaries[beneficiary_index], feeBalances[beneficiary_index]);
           }
         }
 
-      ConfigurableRightsPool crp = ConfigurableRightsPool(beneficiaries[0]); // the smart treasury is at index 0
-      crp.joinswapExternAmountIn(weth, feeBalances[0], 0);
+      if (feeBalances[0] > 0) {
+        ConfigurableRightsPool crp = ConfigurableRightsPool(beneficiaries[0]); // the smart treasury is at index 0
+        crp.joinswapExternAmountIn(weth, feeBalances[0], 0);
+      }
     }
   }
 
@@ -380,15 +383,24 @@ contract FeeCollector is IFeeCollector, AccessControl {
     BPool smartTreasuryBPool = crp.bPool();
 
     uint256 numTokensInPool = smartTreasuryBPool.getNumTokens();
-    // uint[] memory minTokens = ; 
+    address[] memory poolTokens = smartTreasuryBPool.getCurrentTokens();
+    uint256[] memory poolTokenBalances = new uint256[](numTokensInPool);
 
-    crp.exitPool(_amount, new uint[](numTokensInPool));
+    for (uint256 i=0; i<poolTokens.length; i++) {
+      poolTokenBalances[i] = smartTreasuryBPool.getBalance(poolTokens[i]);
+    }
 
-    address[] memory treasuryTokens = smartTreasuryBPool.getCurrentTokens();
+    crp.exitPool(_amount, new uint256[](numTokensInPool));
 
-    for (uint256 i=0; i<treasuryTokens.length; i++) {
-      IERC20 tokenInterface = IERC20(treasuryTokens[i]);
-      tokenInterface.safeTransfer(_toAddress, tokenInterface.balanceOf(address(this))); // transfer all to address
+    for (uint256 i=0; i<poolTokens.length; i++) {
+      IERC20 tokenInterface = IERC20(poolTokens[i]);
+
+      tokenInterface.safeTransfer(
+        _toAddress,
+        poolTokenBalances[i].sub( // the initial balance in pool
+          smartTreasuryBPool.getBalance(poolTokens[i]) // new balance after exiting some amount
+        )
+      ); // transfer all to address
     }
   }
 
@@ -413,7 +425,7 @@ contract FeeCollector is IFeeCollector, AccessControl {
   function getSmartTreasuryAddress() external view returns (address) { return (beneficiaries[0]); }
 
   function isTokenInDespositList(address _tokenAddress) external view returns (bool) {return (depositTokens.contains(_tokenAddress)); }
-  function getNumTokensInDepositList() external view returns (uint) {return (depositTokens.length());}
+  function getNumTokensInDepositList() external view returns (uint256) {return (depositTokens.length());}
 
   function getDepositTokens() external view returns (address[] memory) {
     uint256 numTokens = depositTokens.length();
