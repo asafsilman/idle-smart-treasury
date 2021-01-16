@@ -11,7 +11,6 @@ const IVester = artifacts.require("IVester");
 const SmartTreasuryBootstrap = artifacts.require("SmartTreasuryBootstrap")
 
 const BNify = n => new BN(String(n))
-const timelockDelay = 172800
 
 const advanceBlocks = async n => {
   for (var i = 0; i < n; i++) {
@@ -19,35 +18,16 @@ const advanceBlocks = async n => {
   }
 };
 
-const executeProposal = async (gov, founder, {targets, values, signatures, calldatas, description, from}) => {
+const proposeProposal = async (gov, founder, {targets, values, signatures, calldatas, description, from}) => {
   await gov.propose(targets, values, signatures, calldatas, description,
     {from}
   );
-    
   // need 1 block to pass before being able to vote but less than 10
-  await advanceBlocks(2);
-  let proposalId = await gov.proposalCount.call()
-  console.log(`proposed ${proposalId.toString()}`)
-
-  await gov.castVote(proposalId, true, {from: founder});
-  console.log('voted');
-
-  // Need to advance 3d in blocs + 1
-  await advanceBlocks(17281);
-
-  await gov.queue(proposalId);
-  console.log('queued');
-
-  await time.increase(timelockDelay+100)
-  await advanceBlocks(1)
-
-  await gov.execute(proposalId);
-  console.log('executed');
   await advanceBlocks(2);
 };
 
 module.exports = async function (_deployer, network) {
-  if (network === 'test' || network == 'soliditycoverage') {
+  if (network === 'test' || network === 'development' || network == 'soliditycoverage') {
     return;
   }
 
@@ -80,14 +60,13 @@ module.exports = async function (_deployer, network) {
     })
   }
 
+  const founder = _addresses._founder
 
+  // Delegate
   const idleInstance = await IIdle.at(_addresses.idle)
   const govInstance = await IGovernorAlpha.at(_addresses.governor)
   const vesterFactory = await IVesterFactory.at(_addresses._vesterFactory)
-  // console.log(proposal)
 
-  const founder = _addresses._founder
-  console.log(founder)
 
   const founderVesting = await vesterFactory.vestingContracts.call(founder);
   const vesterFounder = await IVester.at(founderVesting);
@@ -96,5 +75,6 @@ module.exports = async function (_deployer, network) {
 
   await vesterFounder.setDelegate(founder, {from: founder});
 
-  await executeProposal(govInstance, founder, proposal)
+  // propose
+  await proposeProposal(govInstance, founder, proposal)
 }

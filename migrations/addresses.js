@@ -70,5 +70,6 @@ const addresses = {
 
 addresses['development-fork'] = addresses.development
 addresses['soliditycoverage'] = addresses.development
+addresses['local'] = addresses.development
 
 module.exports = addresses;

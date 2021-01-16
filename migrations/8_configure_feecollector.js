@@ -4,7 +4,7 @@ const SmartTreasuryBootstrap = artifacts.require("SmartTreasuryBootstrap");
 const addresses = require('./addresses');
 
 module.exports = async function (deployer, network) {
-  if (network === 'test' || network == 'soliditycoverage') {
+  if (network === 'test' || network === 'development' || network == 'soliditycoverage') {
     return;
   }
 

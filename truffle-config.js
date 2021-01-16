@@ -58,15 +58,21 @@ module.exports = {
      network_id: "*",       // Any network (default: none)
      skipDryRun: true
     },
+    local: {
+      host: "127.0.0.1",     // Localhost (default: none)
+      port: 8545,            // Standard Ethereum port (default: none)
+      network_id: "*",       // Any network (default: none)
+      skipDryRun: true
+    },
     test: {
       host: "127.0.0.1",     // Localhost (default: none)
       port: 8545,            // Standard Ethereum port (default: none)
       network_id: "*",       // Any network (default: none)
       skipDryRun: true
-     },
-     teams: {
+    },
+    teams: {
       url: "https://sandbox.truffleteams.com/b5bbeab5-b0a9-4b8d-99fb-2b44ad719294",
-     },
+    },
     // Another network with more advanced options...
     // advanced: {
     // port: 8777,             // Custom port
