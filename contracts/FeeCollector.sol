@@ -162,9 +162,9 @@ contract FeeCollector is IFeeCollector, AccessControl {
       // _feeToSmartTreasury = feeBalances[0]; // fee sent to smartTreasury
 
       if (wethBalance.sub(feeBalances[0]) > 0){
-          // NOTE: beneficiary_index starts at 1, NOT 0, since 0 is reserved for smart treasury
-          for (uint256 beneficiary_index = 1; beneficiary_index < beneficiaries.length; beneficiary_index++){
-            IERC20(weth).safeTransfer(beneficiaries[beneficiary_index], feeBalances[beneficiary_index]);
+          // NOTE: allocation starts at 1, NOT 0, since 0 is reserved for smart treasury
+          for (uint256 a_index = 1; a_index < allocations.length; a_index++){
+            IERC20(weth).safeTransfer(beneficiaries[a_index], feeBalances[a_index]);
           }
         }
 
@@ -229,6 +229,15 @@ contract FeeCollector is IFeeCollector, AccessControl {
   @notice WARNING: when using this method be very careful to note the new allocations
   The beneficiary at the LAST index, will be replaced with the beneficiary at `_index`.
   The new allocations need to reflect this updated array.
+
+  eg.
+  if beneficiaries = [a, b, c, d]
+  and removeBeneficiaryAt(1, [...]) is called
+
+  the final beneficiaries array will be
+  [a, d, c]
+  `_newAllocations` should be based off of this final array.
+
   @dev Cannot remove beneficiary past MIN_BENEFICIARIES. set to 2
   @dev Cannot replace the smart treasury beneficiary at index 0
   @param _index The index of the beneficiary to remove

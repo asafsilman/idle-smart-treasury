@@ -198,6 +198,81 @@ contract("FeeCollector", async accounts => {
     expect(beneficiaries[1].toLowerCase()).to.be.equal(accounts[0].toLowerCase())
   })
 
+  it("Should respect previous allocation when removing beneficiary", async function() {
+    let instance = this.feeCollectorInstance
+    await instance.setSmartTreasuryAddress(this.crp.address) // must set smart treasury address
+    
+    let allocation = [
+      this.ratio_one_pecrent.mul(BNify('50')),
+      this.ratio_one_pecrent.mul(BNify('25')),
+      this.ratio_one_pecrent.mul(BNify('25'))
+    ]
+
+    await instance.addBeneficiaryAddress(accounts[3], allocation)
+    
+    let depositAmount = web3.utils.toWei("500")
+    await this.mockDAI.transfer(instance.address, depositAmount, {from: accounts[0]}) // 500 DAI
+
+    let newAllocation = [
+      this.ratio_one_pecrent.mul(BNify('50')),
+      this.ratio_one_pecrent.mul(BNify('50'))
+    ]
+
+    let beneficiaryWethBalanceBefore = BNify(await this.mockWETH.balanceOf.call(accounts[3]))
+    let feeTreasuryWethBalanceBefore = BNify(await this.mockWETH.balanceOf.call(addresses.feeTreasuryAddress))
+    let smartTreasuryWethBalanceBefore = BNify(await this.mockWETH.balanceOf.call(this.bPool.address))
+    
+    
+    await instance.removeBeneficiaryAt(2, newAllocation)
+
+    let beneficiaryWethBalanceAfter = BNify(await this.mockWETH.balanceOf.call(accounts[3]))
+    let feeTreasuryWethBalanceAfter = BNify(await this.mockWETH.balanceOf.call(addresses.feeTreasuryAddress))
+    let smartTreasuryWethBalanceAfter = BNify(await this.mockWETH.balanceOf.call(this.bPool.address))
+
+    let beneficiaryWethBalanceDiff = beneficiaryWethBalanceAfter.sub(beneficiaryWethBalanceBefore)
+    let smartTreasuryWethBalanceDiff = smartTreasuryWethBalanceAfter.sub(smartTreasuryWethBalanceBefore)
+    let feeTreasuryWethBalanceDiff = feeTreasuryWethBalanceAfter.sub(feeTreasuryWethBalanceBefore)
+
+    expect(beneficiaryWethBalanceDiff).to.be.bignumber.equal(feeTreasuryWethBalanceDiff)
+    expect(smartTreasuryWethBalanceDiff).to.be.bignumber.equal(feeTreasuryWethBalanceDiff.mul(BNify("2")))
+    expect(smartTreasuryWethBalanceDiff).to.be.bignumber.equal(beneficiaryWethBalanceDiff.mul(BNify("2")))
+
+  })
+
+  it("Should respect previous allocation when adding beneficiary", async function() {
+    let instance = this.feeCollectorInstance
+    await instance.setSmartTreasuryAddress(this.crp.address) // must set smart treasury address
+
+    let allocation = [
+      this.ratio_one_pecrent.mul(BNify('50')),
+      this.ratio_one_pecrent.mul(BNify('50'))
+    ]
+    await instance.setSplitAllocation(allocation)
+
+    let newAllocation = [
+      this.ratio_one_pecrent.mul(BNify('50')),
+      this.ratio_one_pecrent.mul(BNify('25')),
+      this.ratio_one_pecrent.mul(BNify('25'))
+    ]
+
+    let depositAmount = web3.utils.toWei("500")
+    await this.mockDAI.transfer(instance.address, depositAmount, {from: accounts[0]}) // 500 DAI
+
+    let feeTreasuryWethBalanceBefore = BNify(await this.mockWETH.balanceOf.call(addresses.feeTreasuryAddress))
+    let smartTreasuryWethBalanceBefore = BNify(await this.mockWETH.balanceOf.call(this.bPool.address))
+
+    await instance.addBeneficiaryAddress(accounts[2], newAllocation) // internally calls deposit
+
+    let feeTreasuryWethBalanceAfter = BNify(await this.mockWETH.balanceOf.call(addresses.feeTreasuryAddress))
+    let smartTreasuryWethBalanceAfter = BNify(await this.mockWETH.balanceOf.call(this.bPool.address))
+
+    let smartTreasuryWethBalanceDiff = smartTreasuryWethBalanceAfter.sub(smartTreasuryWethBalanceBefore)
+    let feeTreasuryWethBalanceDiff = feeTreasuryWethBalanceAfter.sub(feeTreasuryWethBalanceBefore)
+
+    expect(feeTreasuryWethBalanceDiff).to.be.bignumber.equal(smartTreasuryWethBalanceDiff)
+    expect(BNify(await this.mockWETH.balanceOf.call(accounts[2]))).to.be.bignumber.that.is.equal(BNify("0"))
+  })
+
   it("Should revert when calling function with onlyWhitelisted modifier from non-whitelisted address", async function() {
     let instance = this.feeCollectorInstance
     
