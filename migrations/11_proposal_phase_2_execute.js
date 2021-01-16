@@ -1,16 +1,7 @@
-const {BN, time} = require('@openzeppelin/test-helpers')
+const {time} = require('@openzeppelin/test-helpers')
 
 const addresses = require('./addresses')
-const ERC20abi = require("../abi/erc20")
-
-const IIdle = artifacts.require("IIdle")
 const IGovernorAlpha = artifacts.require("IGovernorAlpha")
-const IVesterFactory = artifacts.require("IVesterFactory")
-const IVester = artifacts.require("IVester");
-
-const SmartTreasuryBootstrap = artifacts.require("SmartTreasuryBootstrap")
-
-const BNify = n => new BN(String(n))
 const timelockDelay = 172800
 
 const advanceBlocks = async n => {

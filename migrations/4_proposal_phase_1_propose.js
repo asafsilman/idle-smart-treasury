@@ -1,4 +1,4 @@
-const {BN, time} = require('@openzeppelin/test-helpers')
+const {BN} = require('@openzeppelin/test-helpers')
 
 const addresses = require('./addresses')
 const ERC20abi = require("../abi/erc20")
@@ -12,18 +12,10 @@ const SmartTreasuryBootstrap = artifacts.require("SmartTreasuryBootstrap")
 
 const BNify = n => new BN(String(n))
 
-const advanceBlocks = async n => {
-  for (var i = 0; i < n; i++) {
-    await time.advanceBlock()
-  }
-};
-
 const proposeProposal = async (gov, founder, {targets, values, signatures, calldatas, description, from}) => {
   await gov.propose(targets, values, signatures, calldatas, description,
     {from}
   );
-  // need 1 block to pass before being able to vote but less than 10
-  await advanceBlocks(2);
 };
 
 module.exports = async function (_deployer, network) {

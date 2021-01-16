@@ -15,6 +15,9 @@ const getLatestPropsal = async (gov) => {
 }
 
 const voteAndQueueProposal = async (gov, founder, proposalId) => {    
+  // need 1 block to pass before being able to vote but less than 10
+  await advanceBlocks(2);
+  
   await gov.castVote(proposalId, true, {from: founder});
   console.log('voted');
 

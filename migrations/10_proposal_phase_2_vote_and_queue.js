@@ -1,17 +1,7 @@
-const {BN, time} = require('@openzeppelin/test-helpers')
+const {time} = require('@openzeppelin/test-helpers')
 
 const addresses = require('./addresses')
-const ERC20abi = require("../abi/erc20")
-
-const IIdle = artifacts.require("IIdle")
 const IGovernorAlpha = artifacts.require("IGovernorAlpha")
-const IVesterFactory = artifacts.require("IVesterFactory")
-const IVester = artifacts.require("IVester");
-
-const SmartTreasuryBootstrap = artifacts.require("SmartTreasuryBootstrap")
-
-const BNify = n => new BN(String(n))
-const timelockDelay = 172800
 
 const advanceBlocks = async n => {
   for (var i = 0; i < n; i++) {
@@ -24,6 +14,9 @@ const getLatestPropsal = async (gov) => {
 }
 
 const voteAndQueueProposal = async (gov, founder, proposalId) => {    
+  // need 1 block to pass before being able to vote but less than 10
+  await advanceBlocks(2);
+
   await gov.castVote(proposalId, true, {from: founder});
   console.log('voted');
 
