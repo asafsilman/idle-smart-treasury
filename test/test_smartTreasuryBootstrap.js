@@ -1,13 +1,16 @@
-const {BN, constants} = require('@openzeppelin/test-helpers');
+const {BN, constants, expectRevert} = require('@openzeppelin/test-helpers');
 
 const { expect } = require('chai');
 
 const SmartTreasuryBootstrap = artifacts.require('SmartTreasuryBootstrap')
+const FeeCollector = artifacts.require('FeeCollector')
 const IUniswapV2Router02 = artifacts.require('IUniswapV2Router02')
 const mockIDLE = artifacts.require('IDLEMock')
 const mockWETH = artifacts.require('WETHMock')
 const mockDAI = artifacts.require('DAIMock')
 const mockUSDC = artifacts.require('USDCMock')
+
+const BPool = artifacts.require('BPool')
 
 const CRP = artifacts.require('ConfigurableRightsPool')
 
@@ -49,20 +52,24 @@ contract('SmartTreasuryBootstrap', async accounts => {
       BNify(web3.eth.getBlockNumber())
     )
 
-    this.smartTreasuryBootstrapInstance = await SmartTreasuryBootstrap.new(
-      addresses.balancerCoreFactory,
-      addresses.balancerCRPFactory,
-      // addresses.uniswapRouterAddress,
-      this.mockIDLE.address,
+    this.feeCollectorInstance = await FeeCollector.new(
       this.mockWETH.address,
-      addresses.timelock,
-      addresses.timelock, // set the feecollector as governance for the time being
+      addresses.feeTreasuryAddress,
+      BNify('0'), // all to fee treasury
       accounts[0],
       []
     )
 
-    await this.smartTreasuryBootstrapInstance._registerTokenToDepositList(this.mockDAI.address)
-    await this.smartTreasuryBootstrapInstance._registerTokenToDepositList(this.mockUSDC.address)
+    this.smartTreasuryBootstrapInstance = await SmartTreasuryBootstrap.new(
+      addresses.balancerCoreFactory,
+      addresses.balancerCRPFactory,
+      this.mockIDLE.address,
+      this.mockWETH.address,
+      addresses.timelock,
+      this.feeCollectorInstance.address, // set the feecollector address
+      accounts[0],
+      [this.mockDAI.address, this.mockUSDC.address]
+    )
 
     // initialise bootstrap contract with 10000 USDC and DAI
     await this.mockDAI.transfer(this.smartTreasuryBootstrapInstance.address, web3.utils.toWei("10000"));
@@ -99,21 +106,87 @@ contract('SmartTreasuryBootstrap', async accounts => {
   })
 
   it('Should renounce ownership to governance', async function() {
-    await this.smartTreasuryBootstrapInstance.swap(); // swap all deposit tokens to WETH
+    await this.smartTreasuryBootstrapInstance.swap() // swap all deposit tokens to WETH
 
-    await this.smartTreasuryBootstrapInstance._setIDLEPrice(web3.utils.toWei('135')); // Set price, this is used for setting initial weights
-    await this.smartTreasuryBootstrapInstance.initialise();
-    await this.smartTreasuryBootstrapInstance.bootstrap();
+    await this.smartTreasuryBootstrapInstance._setIDLEPrice(web3.utils.toWei('135')) // Set price, this is used for setting initial weights
+    await this.smartTreasuryBootstrapInstance.initialise()
+    await this.smartTreasuryBootstrapInstance.bootstrap()
     
-    let crpAddress = await this.smartTreasuryBootstrapInstance._getCRPAddress.call();
-    let crpInstance = await CRP.at(crpAddress);
+    let crpAddress = await this.smartTreasuryBootstrapInstance._getCRPAddress.call()
+    let bPoolAddress = await this.smartTreasuryBootstrapInstance._getCRPBPoolAddress.call()
+    let crpInstance = await CRP.at(crpAddress)
+    let bPoolInstance = await BPool.at(bPoolAddress)
 
-    let oldController = await crpInstance.getController()
-    await this.smartTreasuryBootstrapInstance.renounce(); // renounce ownership
+    let bPoolBalanceCRP = await bPoolInstance.balanceOf.call(crpAddress)
+
+    await this.smartTreasuryBootstrapInstance.renounce() // renounce ownership
     let newController = await crpInstance.getController()
 
+    let canBootstrapProvideLiquidity = await crpInstance.canProvideLiquidity.call(this.smartTreasuryBootstrapInstance.address)
+
+    let bPoolBalanceFeeCollector = await bPoolInstance.balanceOf.call(this.feeCollectorInstance.address)
+
     // add checks for whitelist
-    console.log(oldController)
-    console.log(newController)
+    expect(newController.toLowerCase()).to.equal(addresses.timelock.toLowerCase())
+
+    expect(bPoolBalanceFeeCollector).to.be.bignumber.equal(bPoolBalanceCRP)
+
+    expect(canBootstrapProvideLiquidity).to.be.false // after renounce bootstrap should no longer be able to provide liquidity
+  })
+
+  it('Should withdraw correctly', async function() {
+    let newSmartTreasuryBootstrapInstance = await SmartTreasuryBootstrap.new(
+      addresses.balancerCoreFactory,
+      addresses.balancerCRPFactory,
+      this.mockIDLE.address,
+      this.mockWETH.address,
+      accounts[1], // set timelock as accounts[1] to test withdrawal
+      this.feeCollectorInstance.address, // set the feecollector address
+      accounts[0], // set multisig as accounts[0]
+      [this.mockDAI.address]
+    )
+    await this.mockIDLE.transfer(newSmartTreasuryBootstrapInstance.address, web3.utils.toWei("130000"));
+    await this.mockDAI.transfer(newSmartTreasuryBootstrapInstance.address, BNify(web3.utils.toWei("10000")))
+
+    // random address
+    await expectRevert(
+      newSmartTreasuryBootstrapInstance.withdraw(this.mockDAI.address, accounts[2], BNify(web3.utils.toWei("10000")), {from: accounts[2]}),
+      "Only admin"
+    )
+    
+    // multisig before revert
+    await expectRevert(
+      newSmartTreasuryBootstrapInstance.withdraw(this.mockDAI.address, accounts[0], BNify(web3.utils.toWei("10000")), {from: accounts[0]}), // default account is multisig
+      "Only admin"
+    )
+
+    await newSmartTreasuryBootstrapInstance.withdraw(this.mockDAI.address, accounts[1], BNify(web3.utils.toWei("10000")), {from: accounts[1]}) // timelock should be able to withdraw
+    let timelockBalance = BNify(await this.mockDAI.balanceOf.call(accounts[1]))
+
+    expect(timelockBalance).to.be.bignumber.equal(BNify(web3.utils.toWei("10000")))
+
+    await this.mockDAI.transfer(newSmartTreasuryBootstrapInstance.address, BNify(web3.utils.toWei("10000")))
+    await newSmartTreasuryBootstrapInstance.swap() // swap all deposit tokens to WETH
+    await newSmartTreasuryBootstrapInstance._setIDLEPrice(BNify(web3.utils.toWei('135'))) // Set price, this is used for setting initial weights
+    await newSmartTreasuryBootstrapInstance.initialise()
+    await newSmartTreasuryBootstrapInstance.bootstrap()
+    await newSmartTreasuryBootstrapInstance.renounce() 
+
+    await this.mockDAI.transfer(newSmartTreasuryBootstrapInstance.address, BNify(web3.utils.toWei("10000")));
+
+    // random address
+    await expectRevert(
+      newSmartTreasuryBootstrapInstance.withdraw(this.mockDAI.address, accounts[2], BNify(web3.utils.toWei("10000")), {from: accounts[2]}), // default account is multisig
+      "Only admin"
+    )
+
+    await newSmartTreasuryBootstrapInstance.withdraw(this.mockDAI.address, accounts[1], BNify(web3.utils.toWei("5000")), {from: accounts[1]}) // timelock should be able to withdraw
+    await newSmartTreasuryBootstrapInstance.withdraw(this.mockDAI.address, accounts[3], BNify(web3.utils.toWei("5000")), {from: accounts[0]}) // multisig should be able to withdraw after renounce
+
+    let timelockBalanceAfterRenounce = BNify(await this.mockDAI.balanceOf.call(accounts[1]))
+    let multisigBalanceAfterRenounce = BNify(await this.mockDAI.balanceOf.call(accounts[3]))
+
+    expect(timelockBalanceAfterRenounce).to.be.bignumber.equal(BNify(web3.utils.toWei("15000")))
+    expect(multisigBalanceAfterRenounce).to.be.bignumber.equal(BNify(web3.utils.toWei("5000")))
   })
 })
