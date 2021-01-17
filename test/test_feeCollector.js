@@ -75,7 +75,6 @@ contract("FeeCollector", async accounts => {
     this.bPool = await BPool.at(bPoolAddress)
 
     this.feeCollectorInstance = await FeeCollector.new(
-      addresses.uniswapRouterAddress,
       this.mockWETH.address,
       addresses.feeTreasuryAddress,
       BNify('0'), // all to fee treasury
