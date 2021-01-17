@@ -66,7 +66,6 @@ contract FeeCollector is IFeeCollector, AccessControl {
   @dev Also initialises the sender as admin, and whitelists for calling `deposit()`
   @dev At deploy time the smart treasury will not have been deployed yet.
        setSmartTreasuryAddress should be called after the treasury has been deployed.
-  @param _uniswapRouter The address of the uniswap router.
   @param _weth The wrapped ethereum address.
   @param _feeTreasuryAddress The address of idle's fee treasury.
   @param _ratio Initial fee split ratio allocations between smart treasury and fee treasury.
@@ -74,14 +73,12 @@ contract FeeCollector is IFeeCollector, AccessControl {
   @param _initialDepositTokens The initial tokens to register with the fee deposit
    */
   constructor (
-    address _uniswapRouter,
     address _weth,
     address _feeTreasuryAddress,
     uint256 _ratio,
     address _multisig,
     address[] memory _initialDepositTokens
   ) public {
-    require(_uniswapRouter != address(0), "Uniswap router cannot be 0 address");
     require(_weth != address(0), "WETH cannot be the 0 address");
     require(_feeTreasuryAddress != address(0), "Fee Treasury cannot be 0 address");
     require(_ratio <= 100000, "Ratio is too high");
@@ -90,7 +87,7 @@ contract FeeCollector is IFeeCollector, AccessControl {
     _setupRole(DEFAULT_ADMIN_ROLE, _multisig); // setup multisig as admin
     _setupRole(WHITELISTED, _multisig); // setup multisig as whitelisted address
     
-    uniswapRouterV2 = IUniswapV2Router02(_uniswapRouter); // configure uniswap router
+    uniswapRouterV2 = IUniswapV2Router02(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D); // configure uniswap router
 
     // configure weth address and ERC20 interface
     weth = _weth;
