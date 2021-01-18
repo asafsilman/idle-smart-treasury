@@ -141,7 +141,7 @@ contract FeeCollector is IFeeCollector, AccessControl {
         // swap token
         uniswapRouterV2.swapExactTokensForTokensSupportingFeeOnTransferTokens(
           _currentBalance,
-          0, 
+          1, 
           path,
           address(this),
           block.timestamp
@@ -205,6 +205,26 @@ contract FeeCollector is IFeeCollector, AccessControl {
 
   /**
   @author Asaf Silman
+  @notice Internal function to sets the split allocations of fees to send to fee beneficiaries
+  @dev The split allocations must sum to 100000.
+  @dev smartTreasury must be set for this to be called.
+  @param _allocations The updated split ratio.
+   */
+  function _setSplitAllocation(uint256[] memory _allocations) internal smartTreasurySet {
+    require(_allocations.length == beneficiaries.length, "Invalid length");
+    
+    uint256 sum=0;
+    for (uint256 i=0; i<_allocations.length; i++) {
+      sum = sum.add(_allocations[i]);
+    }
+
+    require(sum == 100000, "Ratio does not equal 100000");
+
+    allocations = _allocations;
+  }
+
+  /**
+  @author Asaf Silman
   @notice Adds an address as a beneficiary to the idle fees
   @dev The new beneficiary will be pushed to the end of the beneficiaries array.
   The new allocations must include the new beneficiary
@@ -217,7 +237,8 @@ contract FeeCollector is IFeeCollector, AccessControl {
     require(_newBeneficiary!=address(0), "beneficiary cannot be 0 address");
 
     beneficiaries.push(_newBeneficiary);
-    setSplitAllocation(_newAllocation);
+
+    setSplitAllocation(_newAllocation); // 
   }
 
   /**
@@ -244,11 +265,21 @@ contract FeeCollector is IFeeCollector, AccessControl {
     require(_index >= 1, "Invalid beneficiary to remove");
     require(beneficiaries.length > MIN_BENEFICIARIES, "Min beneficiaries");
 
+    uint256 numTokens = depositTokens.length();
+    bool[] memory depositTokensEnabled = new bool[](numTokens);
+
+    for (uint256 i=0; i<numTokens; i++) {
+      depositTokensEnabled[i] = true;
+    }
+
+    deposit(depositTokensEnabled); // call deposit before removing beneficiary
+    
     // replace beneficiary with index with final beneficiary, and call pop
     beneficiaries[_index] = beneficiaries[beneficiaries.length-1];
     beneficiaries.pop();
-
-    setSplitAllocation(_newAllocation); // NOTE THE ORDER OF ALLOCATIONS
+    
+    // NOTE THE ORDER OF ALLOCATIONS
+    _setSplitAllocation(_newAllocation); // this does not call deposit. since it has already been called
   }
 
   /**
@@ -264,9 +295,9 @@ contract FeeCollector is IFeeCollector, AccessControl {
     require(_index >= 1, "Invalid beneficiary to remove");
     require(_newBeneficiary!=address(0), "Beneficiary cannot be 0 address");
 
+    setSplitAllocation(_newAllocation); // calling deposit
+    
     beneficiaries[_index] = _newBeneficiary;
-
-    setSplitAllocation(_newAllocation);
   }
   
   /**
@@ -390,23 +421,26 @@ contract FeeCollector is IFeeCollector, AccessControl {
 
     uint256 numTokensInPool = smartTreasuryBPool.getNumTokens();
     address[] memory poolTokens = smartTreasuryBPool.getCurrentTokens();
-    uint256[] memory poolTokenBalances = new uint256[](numTokensInPool);
+    uint256[] memory feeCollectorTokenBalances = new uint256[](numTokensInPool);
 
     for (uint256 i=0; i<poolTokens.length; i++) {
-      poolTokenBalances[i] = smartTreasuryBPool.getBalance(poolTokens[i]);
+      // get the balance of a poolToken of the fee collector
+      feeCollectorTokenBalances[i] = IERC20(poolTokens[i]).balanceOf(address(this));
     }
 
+    // tokens are exitted to feeCollector
     crp.exitPool(_amount, new uint256[](numTokensInPool));
 
     for (uint256 i=0; i<poolTokens.length; i++) {
       IERC20 tokenInterface = IERC20(poolTokens[i]);
 
+      // transfer to `_toAddress` [newBalance - oldBalance]
       tokenInterface.safeTransfer(
         _toAddress,
-        poolTokenBalances[i].sub( // the initial balance in pool
-          smartTreasuryBPool.getBalance(poolTokens[i]) // new balance after exiting some amount
+        tokenInterface.balanceOf(address(this)).sub( // get the new balance of token
+          feeCollectorTokenBalances[i] // subtract previous balance
         )
-      ); // transfer all to address
+      ); // transfer to `_toAddress`
     }
   }
 
