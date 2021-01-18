@@ -293,7 +293,21 @@ contract("FeeCollector", async accounts => {
     let allocation = [this.ratio_one_pecrent.mul(BNify('100')), BNify('0')]
     
     await instance.setSmartTreasuryAddress(this.crp.address) // must set smart treasury address
+    
+    await expectRevert(instance.addBeneficiaryAddress(this.nonZeroAddress, allocation, {from: accounts[1]}), "Unauthorised")
+    await expectRevert(instance.removeBeneficiaryAt(1, allocation, {from: accounts[1]}), "Unauthorised")
+    await expectRevert(instance.replaceBeneficiaryAt(1, this.nonZeroAddress, allocation, {from: accounts[1]}), "Unauthorised")
+    
+    await expectRevert(instance.setSmartTreasuryAddress(this.crp.address, {from: accounts[1]}), "Unauthorised")
+    await expectRevert(instance.addAddressToWhiteList(this.nonZeroAddress, {from: accounts[1]}), "Unauthorised")
+    await expectRevert(instance.removeAddressFromWhiteList(this.nonZeroAddress, {from: accounts[1]}), "Unauthorised")
+    
+    await expectRevert(instance.registerTokenToDepositList(this.nonZeroAddress, {from: accounts[1]}), "Unauthorised")
+    await expectRevert(instance.removeTokenFromDepositList(this.nonZeroAddress, {from: accounts[1]}), "Unauthorised")
+    
     await expectRevert(instance.setSplitAllocation(allocation, {from: accounts[1]}), "Unauthorised")
+    await expectRevert(instance.withdrawUnderlying(this.mockDAI.address, 1, {from: accounts[1]}), "Unauthorised")
+    await expectRevert(instance.replaceAdmin(this.nonZeroAddress, {from: accounts[1]}), "Unauthorised")
   })
 
   it("Should revert when calling function with smartTreasurySet modifier when smart treasury not set", async function() {
@@ -330,6 +344,7 @@ contract("FeeCollector", async accounts => {
     expect(initialFeeTreasuryAddress[1].toLowerCase()).to.be.equal(addresses.feeTreasuryAddress.toLowerCase())
 
     await expectRevert(instance.replaceBeneficiaryAt(1, this.zeroAddress, allocation), "Beneficiary cannot be 0 address")
+    await expectRevert(instance.replaceBeneficiaryAt(0, this.nonZeroAddress, allocation), "Invalid beneficiary to remove")
     await instance.replaceBeneficiaryAt(1, this.nonZeroAddress, allocation)
 
     let newFeeTreasuryAddress = await instance.getBeneficiaries.call()
