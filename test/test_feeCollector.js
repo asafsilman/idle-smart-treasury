@@ -97,8 +97,13 @@ contract("FeeCollector", async accounts => {
     let randomAddressAdmin = await instance.isAddressAdmin.call(accounts[1])
 
     let beneficiaries = await instance.getBeneficiaries.call()
+
+    let depositTokens = await instance.getDepositTokens.call()
+
+    expect(depositTokens.length).to.be.equal(0) // called with no tokens
     
     assert.equal(allocation[0], 0, "Initial ratio is not set to 0")
+    assert.equal(allocation[1], 100000, "Initial ratio is not set to 0")
 
     assert.isTrue(deployerAddressWhitelisted, "Deployer account should be whitelisted")
     assert.isFalse(randomAddressWhitelisted, "Random account should not be whitelisted")
@@ -118,6 +123,9 @@ contract("FeeCollector", async accounts => {
       [this.ratio_one_pecrent.mul(BNify('50')), this.ratio_one_pecrent.mul(BNify('50'))],
       {from: accounts[0]}) // set split 50/50
     await instance.registerTokenToDepositList(this.mockDAI.address, {from: accounts[0]}) // whitelist dai
+
+    let depositTokens = await instance.getDepositTokens.call()
+    expect(depositTokens.length).to.be.equal(1) // called with no tokens
     
     let feeTreasuryWethBalanceBefore = BNify(await this.mockWETH.balanceOf.call(addresses.feeTreasuryAddress))
     let smartTreasuryWethBalanceBefore = BNify(await this.mockWETH.balanceOf.call(this.bPool.address))
