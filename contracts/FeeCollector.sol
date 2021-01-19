@@ -182,15 +182,6 @@ contract FeeCollector is IFeeCollector, AccessControl {
   @param _allocations The updated split ratio.
    */
   function setSplitAllocation(uint256[] memory _allocations) public override smartTreasurySet onlyAdmin {
-    require(_allocations.length == beneficiaries.length, "Invalid length");
-    
-    uint256 sum=0;
-    for (uint256 i=0; i<_allocations.length; i++) {
-      sum = sum.add(_allocations[i]);
-    }
-
-    require(sum == 100000, "Ratio does not equal 100000");
-
     uint256 numTokens = depositTokens.length();
     bool[] memory depositTokensEnabled = new bool[](numTokens);
 
@@ -200,7 +191,7 @@ contract FeeCollector is IFeeCollector, AccessControl {
 
     deposit(depositTokensEnabled);
 
-    allocations = _allocations;
+    _setSplitAllocation(_allocations);
   }
 
   /**
