@@ -28,7 +28,7 @@ const voteAndQueueProposal = async (gov, founder, proposalId) => {
 };
 
 module.exports = async function (_deployer, network) {
-  if (network === 'test' || network === 'development' || network == 'soliditycoverage') {
+  if (network !== 'local') {
     return;
   }
 
