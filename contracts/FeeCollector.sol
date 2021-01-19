@@ -182,14 +182,7 @@ contract FeeCollector is IFeeCollector, AccessControl {
   @param _allocations The updated split ratio.
    */
   function setSplitAllocation(uint256[] memory _allocations) public override smartTreasurySet onlyAdmin {
-    uint256 numTokens = depositTokens.length();
-    bool[] memory depositTokensEnabled = new bool[](numTokens);
-
-    for (uint256 i=0; i<numTokens; i++) {
-      depositTokensEnabled[i] = true;
-    }
-
-    deposit(depositTokensEnabled);
+    _depositAllTokens();
 
     _setSplitAllocation(_allocations);
   }
@@ -214,6 +207,17 @@ contract FeeCollector is IFeeCollector, AccessControl {
     allocations = _allocations;
   }
 
+  function _depositAllTokens() internal {
+    uint256 numTokens = depositTokens.length();
+    bool[] memory depositTokensEnabled = new bool[](numTokens);
+
+    for (uint256 i = 0; i < numTokens; i++) {
+      depositTokensEnabled[i] = true;
+    }
+
+    deposit(depositTokensEnabled);
+  }
+
   /**
   @author Asaf Silman
   @notice Adds an address as a beneficiary to the idle fees
@@ -227,9 +231,11 @@ contract FeeCollector is IFeeCollector, AccessControl {
     require(beneficiaries.length < MAX_BENEFICIARIES, "Max beneficiaries");
     require(_newBeneficiary!=address(0), "beneficiary cannot be 0 address");
 
+    _depositAllTokens();
+
     beneficiaries.push(_newBeneficiary);
 
-    setSplitAllocation(_newAllocation); // 
+    _setSplitAllocation(_newAllocation);
   }
 
   /**
@@ -255,22 +261,15 @@ contract FeeCollector is IFeeCollector, AccessControl {
   function removeBeneficiaryAt(uint256 _index, uint256[] calldata _newAllocation) external override smartTreasurySet onlyAdmin {
     require(_index >= 1, "Invalid beneficiary to remove");
     require(beneficiaries.length > MIN_BENEFICIARIES, "Min beneficiaries");
-
-    uint256 numTokens = depositTokens.length();
-    bool[] memory depositTokensEnabled = new bool[](numTokens);
-
-    for (uint256 i=0; i<numTokens; i++) {
-      depositTokensEnabled[i] = true;
-    }
-
-    deposit(depositTokensEnabled); // call deposit before removing beneficiary
     
+    _depositAllTokens();
+
     // replace beneficiary with index with final beneficiary, and call pop
     beneficiaries[_index] = beneficiaries[beneficiaries.length-1];
     beneficiaries.pop();
     
     // NOTE THE ORDER OF ALLOCATIONS
-    _setSplitAllocation(_newAllocation); // this does not call deposit. since it has already been called
+    _setSplitAllocation(_newAllocation);
   }
 
   /**
@@ -286,9 +285,11 @@ contract FeeCollector is IFeeCollector, AccessControl {
     require(_index >= 1, "Invalid beneficiary to remove");
     require(_newBeneficiary!=address(0), "Beneficiary cannot be 0 address");
 
-    setSplitAllocation(_newAllocation); // calling deposit
+    _depositAllTokens();
     
     beneficiaries[_index] = _newBeneficiary;
+
+    _setSplitAllocation(_newAllocation);
   }
   
   /**
