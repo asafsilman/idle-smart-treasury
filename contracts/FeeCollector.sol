@@ -194,7 +194,7 @@ contract FeeCollector is IFeeCollector, AccessControl {
   @dev smartTreasury must be set for this to be called.
   @param _allocations The updated split ratio.
    */
-  function _setSplitAllocation(uint256[] memory _allocations) internal smartTreasurySet {
+  function _setSplitAllocation(uint256[] memory _allocations) internal {
     require(_allocations.length == beneficiaries.length, "Invalid length");
     
     uint256 sum=0;
