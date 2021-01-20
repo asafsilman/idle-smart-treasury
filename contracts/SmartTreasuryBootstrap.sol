@@ -246,7 +246,7 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
     crp.updateWeightsGradually(
       finalWeights,
       block.timestamp,
-      block.timestamp.add(90 days)  // ~ 3 months
+      block.timestamp.add(30 days)  // ~ 1 months
     );
   }
 
