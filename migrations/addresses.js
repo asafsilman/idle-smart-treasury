@@ -1,5 +1,5 @@
 const addresses = {
-  development: {
+  mainnet: {
     uniswapFactory: '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f',
     uniswapRouterAddress: '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D', // https://uniswap.org/docs/v2/smart-contracts/router02
     
@@ -64,14 +64,17 @@ const addresses = {
     timelock: '0xfD88D7E737a06Aa9c62B950C1cB5eE63DA379AFd',
     governor: '0x782cB1dbd0bD4df95c2497819be3984EeA5c2c25',
 
+    multisig: "0x33d3C1cbeaf31519495894f8655B6f9005fD44dA",
+
     feeTokens: [
       '0x4F96Fe3b7A6Cf9725f59d353F723c1bDb64CA6Aa' // DAI
     ]
   }
 };
 
-addresses['development-fork'] = addresses.development
-addresses['soliditycoverage'] = addresses.development
-addresses['local'] = addresses.development
+addresses['development'] = addresses.mainnet
+addresses['development-fork'] = addresses.mainnet
+addresses['soliditycoverage'] = addresses.mainnet
+addresses['local'] = addresses.mainnet
 
 module.exports = addresses;
