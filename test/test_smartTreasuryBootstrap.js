@@ -71,16 +71,16 @@ contract('SmartTreasuryBootstrap', async accounts => {
       [this.mockDAI.address, this.mockUSDC.address]
     )
 
-    // initialise bootstrap contract with 10000 USDC and DAI
-    await this.mockDAI.transfer(this.smartTreasuryBootstrapInstance.address, web3.utils.toWei("10000"));
-    await this.mockUSDC.transfer(this.smartTreasuryBootstrapInstance.address, BNify("10000").mul(BNify('1000000')));
+    // initialise bootstrap contract with 40000 USDC and DAI
+    await this.mockDAI.transfer(this.smartTreasuryBootstrapInstance.address, web3.utils.toWei("20000"));
+    await this.mockUSDC.transfer(this.smartTreasuryBootstrapInstance.address, BNify("20000").mul(BNify('1000000')));
 
     // initialise bootstrap contract with 130,000 IDLE
     await this.mockIDLE.transfer(this.smartTreasuryBootstrapInstance.address, web3.utils.toWei("130000"));
   })
 
   it('Should swap all tokens in bootstrap', async function() {
-    await this.smartTreasuryBootstrapInstance.swap();
+    await this.smartTreasuryBootstrapInstance.swap([1, 1]);
 
     daiBalance = await this.mockDAI.balanceOf.call(this.smartTreasuryBootstrapInstance.address);
     usdcBalance = await this.mockUSDC.balanceOf.call(this.smartTreasuryBootstrapInstance.address);
@@ -92,7 +92,7 @@ contract('SmartTreasuryBootstrap', async accounts => {
   })
 
   it('Should bootstrap', async function() {
-    await this.smartTreasuryBootstrapInstance.swap(); // swap all deposit tokens to WETH
+    await this.smartTreasuryBootstrapInstance.swap([1, 1]); // swap all deposit tokens to WETH
 
     await this.smartTreasuryBootstrapInstance._setIDLEPrice(web3.utils.toWei('135')); // Set price, this is used for setting initial weights
     await this.smartTreasuryBootstrapInstance.initialise();
@@ -106,7 +106,7 @@ contract('SmartTreasuryBootstrap', async accounts => {
   })
 
   it('Should renounce ownership to governance', async function() {
-    await this.smartTreasuryBootstrapInstance.swap() // swap all deposit tokens to WETH
+    await this.smartTreasuryBootstrapInstance.swap([1, 1]) // swap all deposit tokens to WETH
 
     await this.smartTreasuryBootstrapInstance._setIDLEPrice(web3.utils.toWei('135')) // Set price, this is used for setting initial weights
     await this.smartTreasuryBootstrapInstance.initialise()
@@ -146,7 +146,7 @@ contract('SmartTreasuryBootstrap', async accounts => {
       [this.mockDAI.address]
     )
     await this.mockIDLE.transfer(newSmartTreasuryBootstrapInstance.address, web3.utils.toWei("130000"));
-    await this.mockDAI.transfer(newSmartTreasuryBootstrapInstance.address, BNify(web3.utils.toWei("10000")))
+    await this.mockDAI.transfer(newSmartTreasuryBootstrapInstance.address, BNify(web3.utils.toWei("40000")))
 
     // random address
     await expectRevert(
@@ -166,7 +166,7 @@ contract('SmartTreasuryBootstrap', async accounts => {
     expect(timelockBalance).to.be.bignumber.equal(BNify(web3.utils.toWei("10000")))
 
     await this.mockDAI.transfer(newSmartTreasuryBootstrapInstance.address, BNify(web3.utils.toWei("10000")))
-    await newSmartTreasuryBootstrapInstance.swap() // swap all deposit tokens to WETH
+    await newSmartTreasuryBootstrapInstance.swap([1]) // swap all deposit tokens to WETH
     await newSmartTreasuryBootstrapInstance._setIDLEPrice(BNify(web3.utils.toWei('135'))) // Set price, this is used for setting initial weights
     await newSmartTreasuryBootstrapInstance.initialise()
     await newSmartTreasuryBootstrapInstance.bootstrap()

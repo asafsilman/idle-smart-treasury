@@ -115,8 +115,10 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
   @dev Converts tokens using uniswap simple path. E.g. token -> WETH.
   @dev This should be called after the governance proposal has transfered funds to bootstrapping address
   @dev After this has been called, `swap()` should be called.
+  @param minTokenOut Array of minimum tokens to recieve from swap
    */
-  function swap() external override onlyOwner {
+  function swap(uint256[] calldata minTokenOut) external override onlyOwner {
+    require(minTokenOut.length == depositTokens.length(), "Invalid length");
     uint256 counter = depositTokens.length();
 
     address[] memory path = new address[](2);
@@ -132,13 +134,15 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
       
       uniswapRouterV2.swapExactTokensForTokensSupportingFeeOnTransferTokens(
         _currentBalance,
-        1, // receive atleast 1 wei of ETH 
+        minTokenOut[index],
         path,
         address(this),
         block.timestamp
       );
     }
   }
+
+  event Debug(uint256 indexed weight);
 
   /**
   @author Asaf Silman
@@ -149,12 +153,13 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
    */
   function initialise() external override onlyOwner {
     require(crpaddress==address(0), "Cannot initialise if CRP already exists");
+    require(idlePerWeth!=0, "IDLE price not set");
     
     uint256 idleBalance = idle.balanceOf(address(this));
     uint256 wethBalance = weth.balanceOf(address(this));
 
-    require(idleBalance > 0, "Cannot initialise without idle in contract");
-    require(wethBalance > 0, "Cannot initialise without weth in contract");
+    require(idleBalance > 100, "Cannot initialise without idle in contract");
+    require(wethBalance > 1, "Cannot initialise without weth in contract");
 
     address[] memory tokens = new address[](2);
     tokens[0] = address(idle);
@@ -170,16 +175,14 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
 
     uint256 totalValueInPool = idleValueInWeth.add(wethValue); // expressed in WETH
 
-    // Sum of weights need to be in range B_ONE <= W_x <= B_ONE * 50
-    //
-    // The magic number 48 is used because this is 50 - (Number of Tokens In Pool) = 48
-    //
-    // weight_x = ( value_x / total_pool_value ) * B_ONE * 48 + B_ONE
-    //          = (( value_x * B_ONE * 48) / total_pool_value) + B_ONE
-    //
     uint256[] memory weights = new uint256[](2);
-    weights[0] = idleValueInWeth.mul(BalancerConstants.BONE * 48).div(totalValueInPool).add(BalancerConstants.BONE); // total value / num IDLE tokens
-    weights[1] = wethValue.mul(BalancerConstants.BONE * 48).div(totalValueInPool).add(BalancerConstants.BONE); // total value / num WETH tokens
+    weights[0] = idleValueInWeth.mul(BalancerConstants.BONE * 25).div(totalValueInPool); // total value / num IDLE tokens
+    weights[1] = wethValue.mul(BalancerConstants.BONE * 25).div(totalValueInPool); // total value / num WETH tokens
+
+    emit Debug(weights[0]);
+    emit Debug(weights[1]);
+
+    require(weights[0] >= BalancerConstants.BONE  && weights[0] <= BalancerConstants.BONE.mul(24), "Invalid weights");
 
     ICRPFactory.PoolParams memory params = ICRPFactory.PoolParams({
       poolTokenSymbol: "ISTT",
@@ -238,8 +241,8 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
     );
 
     uint256[] memory finalWeights = new uint256[](2);
-    finalWeights[0] = 45 * BalancerConstants.BONE; // 90 %
-    finalWeights[1] = 5  * BalancerConstants.BONE; // 10 %
+    finalWeights[0] = BalancerConstants.BONE.mul(225).div(10); // 90 %
+    finalWeights[1] = BalancerConstants.BONE.mul(25).div(10); // 10 %
 
     /**** CALL GRADUAL POOL WEIGHT UPDATE ****/
 
@@ -320,6 +323,9 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
   }
 
   function _getCRPAddress() external view returns (address) { return crpaddress; }
-  function _getCRPBPoolAddress() external view returns (address) {return address(ConfigurableRightsPool(crpaddress).bPool());}
+  function _getCRPBPoolAddress() external view returns (address) {
+    require(crpaddress!=address(0), "CRP is not configured yet");
+    return address(ConfigurableRightsPool(crpaddress).bPool());
+  }
   function _tokenInDepositList(address _tokenAddress) external view returns (bool) {return depositTokens.contains(_tokenAddress);}
 }
