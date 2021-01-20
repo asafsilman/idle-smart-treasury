@@ -19,6 +19,7 @@
  */
 
 const HDWalletProvider = require('@truffle/hdwallet-provider');
+const LedgerWalletProvider = require('@umaprotocol/truffle-ledger-provider');
 
 const fs = require('fs');
 
@@ -32,6 +33,14 @@ try {
   infuraKey=""
   mnemonic = "candy maple cake sugar pudding cream honey rich smooth crumble sweet treat"
 }
+
+
+const ledgerOptions = {
+  path: "44'/60'/0'/0/0", // ledger default derivation path
+  askConfirm: false,
+  accountsLength: 1,
+  accountsOffset: 0
+};
 
 
 module.exports = {
@@ -85,7 +94,8 @@ module.exports = {
     // Useful for deploying to a public network.
     // NB: It's important to wrap the provider as a function.
     kovan: {
-      provider: () => new HDWalletProvider(mnemonic, `wss://kovan.infura.io/ws/v3/${infuraKey}`),
+      // provider: () => new HDWalletProvider(mnemonic, `wss://kovan.infura.io/ws/v3/${infuraKey}`),
+      provider: () => new LedgerWalletProvider({...ledgerOptions, networkId: 42}, `https://kovan.infura.io/v3/${infuraKey}`),
       network_id: 42,       // Ropsten's id
       gas: 5500000,        // Ropsten has a lower block limit than mainnet
       confirmations: 2,    // # of confs to wait between deployments. (default: 0)

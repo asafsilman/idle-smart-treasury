@@ -52,21 +52,24 @@ module.exports = async function (_deployer, network) {
     })
   }
 
-  const founder = _addresses._founder
+  var founder;
+  if (network !== 'mainnet') {
+    founder = _addresses._founder
 
-  // Delegate
-  const idleInstance = await IIdle.at(_addresses.idle)
-  const govInstance = await IGovernorAlpha.at(_addresses.governor)
-  const vesterFactory = await IVesterFactory.at(_addresses._vesterFactory)
+    // Delegate
+    const idleInstance = await IIdle.at(_addresses.idle)
+    const vesterFactory = await IVesterFactory.at(_addresses._vesterFactory)
 
+    const founderVesting = await vesterFactory.vestingContracts.call(founder);
+    const vesterFounder = await IVester.at(founderVesting);
+    
+    await idleInstance.delegate(founder, {from: founder});
 
-  const founderVesting = await vesterFactory.vestingContracts.call(founder);
-  const vesterFounder = await IVester.at(founderVesting);
-  
-  await idleInstance.delegate(founder, {from: founder});
-
-  await vesterFounder.setDelegate(founder, {from: founder});
-
+    await vesterFounder.setDelegate(founder, {from: founder});
+  } else {
+    founder = '0x143daa7080f05557C510Be288D6491BC1bAc9958'
+  }
   // propose
+  const govInstance = await IGovernorAlpha.at(_addresses.governor)
   await proposeProposal(govInstance, founder, proposal)
 }
