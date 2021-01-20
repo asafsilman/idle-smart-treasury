@@ -133,7 +133,7 @@ contract("FeeCollector", async accounts => {
     
     let depositAmount = web3.utils.toWei("500")
     await this.mockDAI.transfer(instance.address, depositAmount, {from: accounts[0]}) // 500 DAI
-    await instance.deposit([true], {from: accounts[0]}) // call deposit
+    await instance.deposit([true], [0], 0, {from: accounts[0]}) // call deposit
     
     let feeTreasuryWethBalanceAfter = BNify(await this.mockWETH.balanceOf.call(addresses.feeTreasuryAddress))
     let smartTreasuryWethBalanceAfter = BNify(await this.mockWETH.balanceOf.call(this.bPool.address))     
@@ -164,6 +164,7 @@ contract("FeeCollector", async accounts => {
     }
 
     let tokensEnables = [];
+    let minTokenBalance = []
     for (let index = 0; index < 15; index++) {
       let token = await mockDAI.new()
       await instance.registerTokenToDepositList(token.address)
@@ -180,9 +181,10 @@ contract("FeeCollector", async accounts => {
       let depositAmount = web3.utils.toWei("500")
       await token.transfer(instance.address, depositAmount, {from: accounts[0]}) // 500 DAI
       tokensEnables.push(true);
+      minTokenBalance.push(1)
     }
 
-    let transaction = await instance.deposit(tokensEnables)
+    let transaction = await instance.deposit(tokensEnables, minTokenBalance, 1)
 
     console.log(`Gas used: ${transaction.receipt.gasUsed}`)
   })
@@ -284,7 +286,7 @@ contract("FeeCollector", async accounts => {
     let instance = this.feeCollectorInstance
     
     await instance.setSmartTreasuryAddress(this.crp.address) // must set smart treasury address
-    await expectRevert(instance.deposit([], {from: accounts[1]}), "Unauthorised") // call deposit
+    await expectRevert(instance.deposit([], [], 0, {from: accounts[1]}), "Unauthorised") // call deposit
   })
 
   it("Should revert when calling function with onlyAdmin modifier when not admin", async function() {
@@ -306,7 +308,7 @@ contract("FeeCollector", async accounts => {
     await expectRevert(instance.removeTokenFromDepositList(this.nonZeroAddress, {from: accounts[1]}), "Unauthorised")
     
     await expectRevert(instance.setSplitAllocation(allocation, {from: accounts[1]}), "Unauthorised")
-    await expectRevert(instance.withdrawUnderlying(this.mockDAI.address, 1, {from: accounts[1]}), "Unauthorised")
+    await expectRevert(instance.withdrawUnderlying(this.mockDAI.address, 1, [0, 0], {from: accounts[1]}), "Unauthorised")
     await expectRevert(instance.replaceAdmin(this.nonZeroAddress, {from: accounts[1]}), "Unauthorised")
   })
 
@@ -396,13 +398,13 @@ contract("FeeCollector", async accounts => {
 
     let depositAmount = web3.utils.toWei("500")
     await this.mockDAI.transfer(instance.address, depositAmount, {from: accounts[0]}) // 500 DAI
-    await instance.deposit([true], {from: accounts[0]}) // call deposit
+    await instance.deposit([true], [0], 0, {from: accounts[0]}) // call deposit
 
     let balancerPoolTokenBalanceBefore = BNify(await this.crp.balanceOf.call(instance.address));
     
     expect(balancerPoolTokenBalanceBefore).to.be.bignumber.that.is.greaterThan(BNify('0'))
 
-    await instance.withdrawUnderlying(this.nonZeroAddress, balancerPoolTokenBalanceBefore.div(BNify("2")))
+    await instance.withdrawUnderlying(this.nonZeroAddress, balancerPoolTokenBalanceBefore.div(BNify("2")), [0, 0])
 
     let balancerPoolTokenBalanceAfter = BNify(await this.crp.balanceOf.call(instance.address));
     expect(balancerPoolTokenBalanceAfter).to.be.bignumber.that.is.equal(balancerPoolTokenBalanceBefore.div(BNify("2")))

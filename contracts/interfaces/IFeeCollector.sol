@@ -3,7 +3,7 @@
 pragma solidity >=0.6.0 <=0.7.5;
 
 interface IFeeCollector {
-  function deposit(bool[] calldata _depositTokensEnabled) external; // called by whitelisted address
+  function deposit(bool[] calldata _depositTokensEnabled, uint256[] calldata _minTokenOut, uint256 _minPoolAmountOut) external; // called by whitelisted address
   function setSplitAllocation(uint256[] calldata _allocations) external; // allocation of fees sent SmartTreasury vs FeeTreasury
   // function setFeeTreasuryAddress(address _feeTreasuryAddress) external; // called by admin
 
@@ -21,7 +21,7 @@ interface IFeeCollector {
    // withdraw arbitrary token to address. Called by admin
   function withdraw(address _token, address _toAddress, uint256 _amount) external;
   // exchange liquidity token for underlying token and withdraw to _toAddress
-  function withdrawUnderlying(address _toAddress, uint256 _amount) external;
+  function withdrawUnderlying(address _toAddress, uint256 _amount, uint256[] calldata minTokenOut) external;
 
   function replaceAdmin(address _newAdmin) external; // called by admin
 }

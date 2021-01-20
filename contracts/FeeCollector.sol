@@ -113,9 +113,14 @@ contract FeeCollector is IFeeCollector, AccessControl {
           fee treasury and smart treasury based on split allocations.
   @dev The fees are swaped using Uniswap simple route. E.g. Token -> WETH.
    */
-  function deposit(bool[] memory _depositTokensEnabled) public override smartTreasurySet onlyWhitelisted {
+  function deposit(
+    bool[] memory _depositTokensEnabled,
+    uint256[] memory _minTokenOut,
+    uint256 _minPoolAmountOut
+  ) public override smartTreasurySet onlyWhitelisted {
     uint256 counter = depositTokens.length();
     require(_depositTokensEnabled.length == counter, "Invalid length");
+    require(_minTokenOut.length == counter, "Invalid length");
 
     uint256 _currentBalance;
 
@@ -141,7 +146,7 @@ contract FeeCollector is IFeeCollector, AccessControl {
         // swap token
         uniswapRouterV2.swapExactTokensForTokensSupportingFeeOnTransferTokens(
           _currentBalance,
-          1, 
+          _minTokenOut[index], 
           path,
           address(this),
           block.timestamp
@@ -167,7 +172,7 @@ contract FeeCollector is IFeeCollector, AccessControl {
 
       if (feeBalances[0] > 0) {
         ConfigurableRightsPool crp = ConfigurableRightsPool(beneficiaries[0]); // the smart treasury is at index 0
-        crp.joinswapExternAmountIn(weth, feeBalances[0], 0);
+        crp.joinswapExternAmountIn(weth, feeBalances[0], _minPoolAmountOut);
       }
     }
   }
@@ -210,12 +215,14 @@ contract FeeCollector is IFeeCollector, AccessControl {
   function _depositAllTokens() internal {
     uint256 numTokens = depositTokens.length();
     bool[] memory depositTokensEnabled = new bool[](numTokens);
+    uint256[] memory minTokenOut = new uint256[](numTokens);
 
     for (uint256 i = 0; i < numTokens; i++) {
       depositTokensEnabled[i] = true;
+      minTokenOut[i] = 1;
     }
 
-    deposit(depositTokensEnabled);
+    deposit(depositTokensEnabled, minTokenOut, 1);
   }
 
   /**
@@ -407,11 +414,14 @@ contract FeeCollector is IFeeCollector, AccessControl {
   @param _toAddress The address to send the underlying tokens to
   @param _amount The underlying amount of balancer pool tokens to exchange
   */
-  function withdrawUnderlying(address _toAddress, uint256 _amount) external override smartTreasurySet onlyAdmin{
+  function withdrawUnderlying(address _toAddress, uint256 _amount, uint256[] calldata minTokenOut) external override smartTreasurySet onlyAdmin{
     ConfigurableRightsPool crp = ConfigurableRightsPool(beneficiaries[0]);
     BPool smartTreasuryBPool = crp.bPool();
 
     uint256 numTokensInPool = smartTreasuryBPool.getNumTokens();
+    require(minTokenOut.length == numTokensInPool, "Invalid length");
+
+
     address[] memory poolTokens = smartTreasuryBPool.getCurrentTokens();
     uint256[] memory feeCollectorTokenBalances = new uint256[](numTokensInPool);
 
@@ -421,7 +431,7 @@ contract FeeCollector is IFeeCollector, AccessControl {
     }
 
     // tokens are exitted to feeCollector
-    crp.exitPool(_amount, new uint256[](numTokensInPool));
+    crp.exitPool(_amount, minTokenOut);
 
     for (uint256 i=0; i<poolTokens.length; i++) {
       IERC20 tokenInterface = IERC20(poolTokens[i]);
