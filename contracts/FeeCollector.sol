@@ -24,12 +24,9 @@ contract FeeCollector is IFeeCollector, AccessControl {
   using SafeMath for uint256;
   using SafeERC20 for IERC20;
 
-  // address private feeTreasuryAddress;
-  // address private smartTreasuryAddress;
+  IUniswapV2Router02 private constant uniswapRouterV2 = IUniswapV2Router02(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
 
-  IUniswapV2Router02 private uniswapRouterV2;
-
-  address private weth;
+  address private immutable weth;
 
   // Need to use openzeppelin enumerableset
   EnumerableSet.AddressSet private depositTokens;
@@ -86,8 +83,6 @@ contract FeeCollector is IFeeCollector, AccessControl {
     
     _setupRole(DEFAULT_ADMIN_ROLE, _multisig); // setup multisig as admin
     _setupRole(WHITELISTED, _multisig); // setup multisig as whitelisted address
-    
-    uniswapRouterV2 = IUniswapV2Router02(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D); // configure uniswap router
 
     // configure weth address and ERC20 interface
     weth = _weth;

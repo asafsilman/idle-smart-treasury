@@ -27,8 +27,8 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
   using SafeERC20 for IERC20;
   using SafeMath for uint256;
 
-  address timelock;
-  address feeCollectorAddress;
+  address immutable timelock;
+  address immutable feeCollectorAddress;
 
   address private crpaddress;
 
@@ -39,10 +39,12 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
   IBFactory private balancer_bfactory;
   ICRPFactory private balancer_crpfactory;
 
-  IUniswapV2Router02 private uniswapRouterV2;
+  // hardcoded as this value is the same across all networks
+  // https://uniswap.org/docs/v2/smart-contracts/router02
+  IUniswapV2Router02 private constant uniswapRouterV2 = IUniswapV2Router02(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
 
-  IERC20 private idle;
-  IERC20 private weth;
+  IERC20 private immutable idle;
+  IERC20 private immutable weth;
 
   EnumerableSet.AddressSet private depositTokens;
 
@@ -82,12 +84,6 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
     // initialise balancer factories
     balancer_bfactory = IBFactory(_balancerBFactory);
     balancer_crpfactory = ICRPFactory(_balancerCRPFactory);
-
-    // configure uniswap router
-
-    // hardcoded as this value is the same across all networks
-    // https://uniswap.org/docs/v2/smart-contracts/router02
-    uniswapRouterV2 = IUniswapV2Router02(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
 
     // configure tokens
     idle = IERC20(_idle);
