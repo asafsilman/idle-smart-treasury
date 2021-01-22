@@ -138,8 +138,6 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
     }
   }
 
-  event Debug(uint256 indexed weight);
-
   /**
   @author Asaf Silman
   @notice Initialises the smart treasury with bootstrapping parameters
@@ -174,9 +172,6 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
     uint256[] memory weights = new uint256[](2);
     weights[0] = idleValueInWeth.mul(BalancerConstants.BONE * 25).div(totalValueInPool); // total value / num IDLE tokens
     weights[1] = wethValue.mul(BalancerConstants.BONE * 25).div(totalValueInPool); // total value / num WETH tokens
-
-    emit Debug(weights[0]);
-    emit Debug(weights[1]);
 
     require(weights[0] >= BalancerConstants.BONE  && weights[0] <= BalancerConstants.BONE.mul(24), "Invalid weights");
 
