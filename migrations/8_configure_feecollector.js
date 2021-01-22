@@ -11,7 +11,7 @@ const BNify = n => new BN(String(n))
 const ratio_one_pecrent = BNify('1000')
 
 module.exports = async function (deployer, network) {
-  if (network === 'test' || network === 'development' || network == 'soliditycoverage' || 'mainnet') {
+  if (network === 'test' || network === 'development' || network == 'soliditycoverage' || network === 'mainnet') {
     return;
   }
 
