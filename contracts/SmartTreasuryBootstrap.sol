@@ -36,8 +36,8 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
 
   bool private renounced;
 
-  IBFactory private balancer_bfactory;
-  ICRPFactory private balancer_crpfactory;
+  IBFactory private immutable balancer_bfactory;
+  ICRPFactory private immutable balancer_crpfactory;
 
   // hardcoded as this value is the same across all networks
   // https://uniswap.org/docs/v2/smart-contracts/router02
@@ -313,6 +313,7 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
     depositTokens.remove(_tokenAddress);
   }
 
+  function _getIDLEperWETH() external view returns (uint256) {return idlePerWeth; }
   function _getCRPAddress() external view returns (address) { return crpaddress; }
   function _getCRPBPoolAddress() external view returns (address) {
     require(crpaddress!=address(0), "CRP is not configured yet");
