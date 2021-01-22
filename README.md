@@ -14,4 +14,7 @@ Addresses which need to be unlocked
 ## Running coverage report
 `truffle run coverage`
 
+## Running migrations locally
+`truffle migrate --network local`
+
 Make sure you gave a ganache server running on localhost:8545
