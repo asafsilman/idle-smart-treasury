@@ -14,7 +14,7 @@ module.exports = function (deployer, network) {
   deployer.deploy(FeeCollector, 
     _addresses.weth,
     _addresses.feeTreasuryAddress,
-    BNify('80000'), // 80% to smart treasury
+    _addresses.idleRebalancer,
     _addresses.multisig,
     _addresses.feeTokens
     )

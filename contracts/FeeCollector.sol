@@ -65,34 +65,37 @@ contract FeeCollector is IFeeCollector, AccessControl {
        setSmartTreasuryAddress should be called after the treasury has been deployed.
   @param _weth The wrapped ethereum address.
   @param _feeTreasuryAddress The address of idle's fee treasury.
-  @param _ratio Initial fee split ratio allocations between smart treasury and fee treasury.
+  @param _multisig Idle rebalancer address
   @param _multisig The multisig account to transfer ownership to after contract initialised
   @param _initialDepositTokens The initial tokens to register with the fee deposit
    */
   constructor (
     address _weth,
     address _feeTreasuryAddress,
-    uint256 _ratio,
+    address _idleRebalancer,
     address _multisig,
     address[] memory _initialDepositTokens
   ) public {
     require(_weth != address(0), "WETH cannot be the 0 address");
     require(_feeTreasuryAddress != address(0), "Fee Treasury cannot be 0 address");
-    require(_ratio <= 100000, "Ratio is too high");
+    require(_idleRebalancer != address(0), "Rebalancer cannot be 0 address");
     require(_multisig != address(0), "Multisig cannot be 0 address");
     
     _setupRole(DEFAULT_ADMIN_ROLE, _multisig); // setup multisig as admin
     _setupRole(WHITELISTED, _multisig); // setup multisig as whitelisted address
+    _setupRole(WHITELISTED, _idleRebalancer); // setup multisig as whitelisted address
 
     // configure weth address and ERC20 interface
     weth = _weth;
 
-    allocations = new uint256[](2); // setup fee split ratio
-    allocations[0] = _ratio;
-    allocations[1] = FULL_ALLOC.sub(_ratio);
-    
-    beneficiaries = new address[](2); // setup benefifiaries
+    allocations = new uint256[](3); // setup fee split ratio
+    allocations[0] = 80000;
+    allocations[1] = 15000;
+    allocations[2] = 5000;
+
+    beneficiaries = new address[](3); // setup beneficiaries
     beneficiaries[1] = _feeTreasuryAddress; // setup fee treasury address
+    beneficiaries[2] = _idleRebalancer; // setup fee treasury address
 
     for (uint256 index = 0; index < _initialDepositTokens.length; index++) {
       require(_initialDepositTokens[index] != address(0), "Token cannot be  0 address");
@@ -202,7 +205,7 @@ contract FeeCollector is IFeeCollector, AccessControl {
       sum = sum.add(_allocations[i]);
     }
 
-    require(sum == 100000, "Ratio does not equal 100000");
+    require(sum == FULL_ALLOC, "Ratio does not equal 100000");
 
     allocations = _allocations;
   }

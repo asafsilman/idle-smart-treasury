@@ -77,7 +77,7 @@ contract("FeeCollector", async accounts => {
     this.feeCollectorInstance = await FeeCollector.new(
       this.mockWETH.address,
       addresses.feeTreasuryAddress,
-      BNify('0'), // all to fee treasury
+      addresses.idleRebalancer,
       accounts[0],
       []
     )
@@ -102,8 +102,11 @@ contract("FeeCollector", async accounts => {
 
     expect(depositTokens.length).to.be.equal(0) // called with no tokens
     
-    assert.equal(allocation[0], 0, "Initial ratio is not set to 0")
-    assert.equal(allocation[1], 100000, "Initial ratio is not set to 0")
+    expect(allocation[0], "Initial ratio is not set to 80%").to.be.bignumber.equal(BNify('80000'))
+    expect(allocation[1], "Initial ratio is not set to 15%").to.be.bignumber.equal(BNify('15000'))
+    expect(allocation[2], "Initial ratio is not set to 5%").to.be.bignumber.equal(BNify('5000'))
+
+    expect(allocation.length).to.be.equal(3)
 
     assert.isTrue(deployerAddressWhitelisted, "Deployer account should be whitelisted")
     assert.isFalse(randomAddressWhitelisted, "Random account should not be whitelisted")
@@ -111,8 +114,11 @@ contract("FeeCollector", async accounts => {
     assert.isTrue(deployerAddressAdmin, "Deployer account should be admin")
     assert.isFalse(randomAddressAdmin, "Random account should not be admin")
 
-    assert.equal(beneficiaries[1].toLowerCase(), addresses.feeTreasuryAddress.toLowerCase())
     assert.equal(beneficiaries[0].toLowerCase(), this.zeroAddress) // should be zero address on deploy
+    assert.equal(beneficiaries[1].toLowerCase(), addresses.feeTreasuryAddress.toLowerCase())
+    assert.equal(beneficiaries[2].toLowerCase(), addresses.idleRebalancer.toLowerCase())
+
+    expect(beneficiaries.length).to.be.equal(3)
   })
 
   it("Should deposit tokens with split set to 50/50", async function() {
@@ -120,7 +126,7 @@ contract("FeeCollector", async accounts => {
 
     await instance.setSmartTreasuryAddress(this.crp.address)
     await instance.setSplitAllocation(
-      [this.ratio_one_pecrent.mul(BNify('50')), this.ratio_one_pecrent.mul(BNify('50'))],
+      [this.ratio_one_pecrent.mul(BNify('50')), this.ratio_one_pecrent.mul(BNify('50')), 0],
       {from: accounts[0]}) // set split 50/50
     await instance.registerTokenToDepositList(this.mockDAI.address, {from: accounts[0]}) // whitelist dai
 
@@ -153,10 +159,10 @@ contract("FeeCollector", async accounts => {
     let instance = this.feeCollectorInstance
     await instance.setSmartTreasuryAddress(this.crp.address)
 
-    let initialAllocation = [BNify('95'), BNify('5')]
+    let initialAllocation = [BNify('90'), BNify('5'), BNify('5')]
 
-    for (let index=0; index < 3; index++) {
-      initialAllocation[0] = BNify(90-5*index)
+    for (let index=0; index < 2; index++) {
+      initialAllocation[0] = BNify(85-5*index)
       initialAllocation.push(BNify('5'))
       
       let allocation = initialAllocation.map(x => this.ratio_one_pecrent.mul(x))
@@ -193,17 +199,17 @@ contract("FeeCollector", async accounts => {
     let instance = this.feeCollectorInstance
     await instance.setSmartTreasuryAddress(this.crp.address) // must set smart treasury address
 
-    let allocation = [this.ratio_one_pecrent.mul(BNify('100')), BNify('0'), BNify('0')]
+    let allocation = [this.ratio_one_pecrent.mul(BNify('100')), BNify('0'), BNify('0'), BNify('0')]
 
     await instance.addBeneficiaryAddress(accounts[0], allocation)
     let beneficiaries = await instance.getBeneficiaries.call()
 
-    expect(beneficiaries.length).to.be.equal(3)
+    expect(beneficiaries.length).to.be.equal(4)
 
     allocation.pop()
     await instance.removeBeneficiaryAt(1, allocation)
     beneficiaries = await instance.getBeneficiaries.call()
-    expect(beneficiaries.length).to.be.equal(2)
+    expect(beneficiaries.length).to.be.equal(3)
     expect(beneficiaries[1].toLowerCase()).to.be.equal(accounts[0].toLowerCase())
   })
 
@@ -214,7 +220,8 @@ contract("FeeCollector", async accounts => {
     let allocation = [
       this.ratio_one_pecrent.mul(BNify('50')),
       this.ratio_one_pecrent.mul(BNify('25')),
-      this.ratio_one_pecrent.mul(BNify('25'))
+      this.ratio_one_pecrent.mul(BNify('25')),
+      this.ratio_one_pecrent.mul(BNify('0'))
     ]
 
     await instance.addBeneficiaryAddress(accounts[3], allocation)
@@ -224,7 +231,8 @@ contract("FeeCollector", async accounts => {
 
     let newAllocation = [
       this.ratio_one_pecrent.mul(BNify('50')),
-      this.ratio_one_pecrent.mul(BNify('50'))
+      this.ratio_one_pecrent.mul(BNify('50')),
+      this.ratio_one_pecrent.mul(BNify('0'))
     ]
 
     let beneficiaryWethBalanceBefore = BNify(await this.mockWETH.balanceOf.call(accounts[3]))
@@ -232,7 +240,7 @@ contract("FeeCollector", async accounts => {
     let smartTreasuryWethBalanceBefore = BNify(await this.mockWETH.balanceOf.call(this.bPool.address))
     
     
-    await instance.removeBeneficiaryAt(2, newAllocation)
+    await instance.removeBeneficiaryAt(3, newAllocation)
 
     let beneficiaryWethBalanceAfter = BNify(await this.mockWETH.balanceOf.call(accounts[3]))
     let feeTreasuryWethBalanceAfter = BNify(await this.mockWETH.balanceOf.call(addresses.feeTreasuryAddress))
@@ -254,14 +262,16 @@ contract("FeeCollector", async accounts => {
 
     let allocation = [
       this.ratio_one_pecrent.mul(BNify('50')),
-      this.ratio_one_pecrent.mul(BNify('50'))
+      this.ratio_one_pecrent.mul(BNify('50')),
+      this.ratio_one_pecrent.mul(BNify('0'))
     ]
     await instance.setSplitAllocation(allocation)
 
     let newAllocation = [
       this.ratio_one_pecrent.mul(BNify('50')),
       this.ratio_one_pecrent.mul(BNify('25')),
-      this.ratio_one_pecrent.mul(BNify('25'))
+      this.ratio_one_pecrent.mul(BNify('25')),
+      this.ratio_one_pecrent.mul(BNify('0'))
     ]
 
     let depositAmount = web3.utils.toWei("500")
@@ -292,7 +302,11 @@ contract("FeeCollector", async accounts => {
   it("Should revert when calling function with onlyAdmin modifier when not admin", async function() {
     let instance = this.feeCollectorInstance
     
-    let allocation = [this.ratio_one_pecrent.mul(BNify('100')), BNify('0')]
+    let allocation = [
+      this.ratio_one_pecrent.mul(BNify('100')),
+      this.ratio_one_pecrent.mul(BNify('0')),
+      this.ratio_one_pecrent.mul(BNify('0'))
+    ]
     
     await instance.setSmartTreasuryAddress(this.crp.address) // must set smart treasury address
     
@@ -315,7 +329,11 @@ contract("FeeCollector", async accounts => {
   it("Should revert when calling function with smartTreasurySet modifier when smart treasury not set", async function() {
     let instance = this.feeCollectorInstance
     
-    let allocation = [this.ratio_one_pecrent.mul(BNify('100')), BNify('0')]
+    let allocation = [
+      this.ratio_one_pecrent.mul(BNify('100')),
+      this.ratio_one_pecrent.mul(BNify('0')),
+      this.ratio_one_pecrent.mul(BNify('0'))
+    ]
     await expectRevert(instance.setSplitAllocation(allocation, {from: accounts[0]}), "Smart Treasury not set")
   })
 
@@ -340,7 +358,11 @@ contract("FeeCollector", async accounts => {
     let instance = this.feeCollectorInstance
     await instance.setSmartTreasuryAddress(this.crp.address) // must set smart treasury address
 
-    let allocation = [this.ratio_one_pecrent.mul(BNify('100')), BNify('0')]
+    let allocation = [
+      this.ratio_one_pecrent.mul(BNify('100')),
+      this.ratio_one_pecrent.mul(BNify('0')),
+      this.ratio_one_pecrent.mul(BNify('0'))
+    ]
 
     let initialFeeTreasuryAddress = await instance.getBeneficiaries.call()
     expect(initialFeeTreasuryAddress[1].toLowerCase()).to.be.equal(addresses.feeTreasuryAddress.toLowerCase())
@@ -390,7 +412,11 @@ contract("FeeCollector", async accounts => {
 
   it("Should withdraw underlying deposit token", async function() {
     let instance = this.feeCollectorInstance
-    let allocation = [this.ratio_one_pecrent.mul(BNify('100')), BNify('0')]
+    let allocation = [
+      this.ratio_one_pecrent.mul(BNify('100')),
+      this.ratio_one_pecrent.mul(BNify('0')),
+      this.ratio_one_pecrent.mul(BNify('0'))
+    ]
 
     await instance.setSmartTreasuryAddress(this.crp.address)
     await instance.setSplitAllocation(allocation, {from: accounts[0]}) // set split to 100% smart tresury
@@ -474,7 +500,7 @@ contract("FeeCollector", async accounts => {
   it("Should not set invalid split ratio", async function() {
     let instance = this.feeCollectorInstance
     
-    let allocation = [this.ratio_one_pecrent.mul(BNify('101')), BNify('0')]
+    let allocation = [this.ratio_one_pecrent.mul(BNify('101')), BNify('0'), BNify('0')]
     
     
     await instance.setSmartTreasuryAddress(this.crp.address) // must set smart treasury address
