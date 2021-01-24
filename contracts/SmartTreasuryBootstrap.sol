@@ -95,11 +95,14 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
 
     renounced = false; // flag to indicate whether renounce has been called
 
+    address _depositToken;
     for (uint256 index = 0; index < _initialDepositTokens.length; index++) {
-      require(_initialDepositTokens[index] != address(0), "Token cannot be  0 address");
+      _depositToken = _initialDepositTokens[index];
+      require(_depositToken != address(_weth), "WETH fees are not supported"); // There is no WETH -> WETH pool in uniswap
+      require(_depositToken != address(_idle), "IDLE fees are not supported"); // Dont swap IDLE to WETH
 
-      IERC20(_initialDepositTokens[index]).safeIncreaseAllowance(address(uniswapRouterV2), uint256(-1)); // max approval
-      depositTokens.add(_initialDepositTokens[index]);
+      IERC20(_depositToken).safeIncreaseAllowance(address(uniswapRouterV2), type(uint256).max); // max approval
+      depositTokens.add(_depositToken);
     }
 
     transferOwnership(_multisig);
@@ -285,7 +288,7 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
   @dev expressed in Wei
   @param _idlePerWeth idle price per weth expressed in Wei
    */
-  function _setIDLEPrice(uint256 _idlePerWeth) external onlyOwner {
+  function setIDLEPrice(uint256 _idlePerWeth) external onlyOwner {
     idlePerWeth = _idlePerWeth;
   }
 
@@ -295,11 +298,11 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
   @dev All fee tokens from fee treasury should be added in this manor
   @param _tokenAddress Token address to register with bootstrap contract
    */
-  function _registerTokenToDepositList(address _tokenAddress) external onlyOwner {
+  function registerTokenToDepositList(address _tokenAddress) public onlyOwner {
     require(_tokenAddress != address(weth), "WETH fees are not supported"); // There is no WETH -> WETH pool in uniswap
     require(_tokenAddress != address(idle), "IDLE fees are not supported"); // Dont swap IDLE to WETH
 
-    IERC20(_tokenAddress).safeIncreaseAllowance(address(uniswapRouterV2), uint256(-1)); // max approval
+    IERC20(_tokenAddress).safeIncreaseAllowance(address(uniswapRouterV2), type(uint256).max); // max approval
     depositTokens.add(_tokenAddress);
   }
 
@@ -308,16 +311,16 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
   @notice Removes a fee token depositTokens
   @param _tokenAddress Token address to remove
    */
-  function _removeTokenFromDepositList(address _tokenAddress) external onlyOwner {
+  function removeTokenFromDepositList(address _tokenAddress) external onlyOwner {
     IERC20(_tokenAddress).safeApprove(address(uniswapRouterV2), 0); // 0 approval for uniswap
     depositTokens.remove(_tokenAddress);
   }
 
-  function _getIDLEperWETH() external view returns (uint256) {return idlePerWeth; }
-  function _getCRPAddress() external view returns (address) { return crpaddress; }
-  function _getCRPBPoolAddress() external view returns (address) {
+  function getIDLEperWETH() external view returns (uint256) {return idlePerWeth; }
+  function getCRPAddress() external view returns (address) { return crpaddress; }
+  function getCRPBPoolAddress() external view returns (address) {
     require(crpaddress!=address(0), "CRP is not configured yet");
     return address(ConfigurableRightsPool(crpaddress).bPool());
   }
-  function _tokenInDepositList(address _tokenAddress) external view returns (bool) {return depositTokens.contains(_tokenAddress);}
+  function tokenInDepositList(address _tokenAddress) external view returns (bool) {return depositTokens.contains(_tokenAddress);}
 }

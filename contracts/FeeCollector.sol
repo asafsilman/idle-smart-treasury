@@ -65,7 +65,7 @@ contract FeeCollector is IFeeCollector, AccessControl {
        setSmartTreasuryAddress should be called after the treasury has been deployed.
   @param _weth The wrapped ethereum address.
   @param _feeTreasuryAddress The address of idle's fee treasury.
-  @param _multisig Idle rebalancer address
+  @param _idleRebalancer Idle rebalancer address
   @param _multisig The multisig account to transfer ownership to after contract initialised
   @param _initialDepositTokens The initial tokens to register with the fee deposit
    */
@@ -80,6 +80,8 @@ contract FeeCollector is IFeeCollector, AccessControl {
     require(_feeTreasuryAddress != address(0), "Fee Treasury cannot be 0 address");
     require(_idleRebalancer != address(0), "Rebalancer cannot be 0 address");
     require(_multisig != address(0), "Multisig cannot be 0 address");
+
+    require(_initialDepositTokens.length <= MAX_NUM_FEE_TOKENS);
     
     _setupRole(DEFAULT_ADMIN_ROLE, _multisig); // setup multisig as admin
     _setupRole(WHITELISTED, _multisig); // setup multisig as whitelisted address
@@ -97,11 +99,16 @@ contract FeeCollector is IFeeCollector, AccessControl {
     beneficiaries[1] = _feeTreasuryAddress; // setup fee treasury address
     beneficiaries[2] = _idleRebalancer; // setup fee treasury address
 
+    
+    address _depositToken;
     for (uint256 index = 0; index < _initialDepositTokens.length; index++) {
-      require(_initialDepositTokens[index] != address(0), "Token cannot be  0 address");
+      _depositToken = _initialDepositTokens[index];
+      require(_depositToken != address(0), "Token cannot be 0 address");
+      require(_depositToken != _weth, "WETH not supported"); // There is no WETH -> WETH pool in uniswap
+      require(depositTokens.contains(_depositToken) == false, "Already exists");
 
-      IERC20(_initialDepositTokens[index]).safeIncreaseAllowance(address(uniswapRouterV2), uint256(-1)); // max approval
-      depositTokens.add(_initialDepositTokens[index]);
+      IERC20(_depositToken).safeIncreaseAllowance(address(uniswapRouterV2), type(uint256).max); // max approval
+      depositTokens.add(_depositToken);
     }
   }
 
@@ -121,6 +128,7 @@ contract FeeCollector is IFeeCollector, AccessControl {
     require(_minTokenOut.length == counter, "Invalid length");
 
     uint256 _currentBalance;
+    IERC20 _tokenInterface;
 
     uint256[] memory feeBalances;
 
@@ -131,7 +139,7 @@ contract FeeCollector is IFeeCollector, AccessControl {
     for (uint256 index = 0; index < counter; index++) {
       if (_depositTokensEnabled[index] == false) {continue;}
 
-      IERC20 _tokenInterface = IERC20(depositTokens.at(index));
+      _tokenInterface = IERC20(depositTokens.at(index));
 
       _currentBalance = _tokenInterface.balanceOf(address(this));
       
@@ -184,7 +192,7 @@ contract FeeCollector is IFeeCollector, AccessControl {
   @dev smartTreasury must be set for this to be called.
   @param _allocations The updated split ratio.
    */
-  function setSplitAllocation(uint256[] memory _allocations) public override smartTreasurySet onlyAdmin {
+  function setSplitAllocation(uint256[] calldata _allocations) external override smartTreasurySet onlyAdmin {
     _depositAllTokens();
 
     _setSplitAllocation(_allocations);
@@ -210,6 +218,10 @@ contract FeeCollector is IFeeCollector, AccessControl {
     allocations = _allocations;
   }
 
+  /**
+  @author Andrea @ idle.finance
+  @notice Helper function to deposit all tokens
+   */
   function _depositAllTokens() internal {
     uint256 numTokens = depositTokens.length();
     bool[] memory depositTokensEnabled = new bool[](numTokens);
@@ -314,7 +326,7 @@ contract FeeCollector is IFeeCollector, AccessControl {
       IERC20(weth).safeApprove(beneficiaries[0], 0); // set approval for previous fee address to 0
     }
     // max approval for new smartTreasuryAddress
-    IERC20(weth).safeIncreaseAllowance(_smartTreasuryAddress, uint256(-1));
+    IERC20(weth).safeIncreaseAllowance(_smartTreasuryAddress, type(uint256).max);
     beneficiaries[0] = _smartTreasuryAddress;
   }
 
@@ -348,12 +360,12 @@ contract FeeCollector is IFeeCollector, AccessControl {
   @param _tokenAddress The token address to register
    */
   function registerTokenToDepositList(address _tokenAddress) external override onlyAdmin {
-    // cannot be weth
     require(depositTokens.length() < MAX_NUM_FEE_TOKENS, "Too many tokens");
+    require(_tokenAddress != address(0), "Token cannot be 0 address");
     require(_tokenAddress != weth, "WETH not supported"); // There is no WETH -> WETH pool in uniswap
     require(depositTokens.contains(_tokenAddress) == false, "Already exists");
 
-    IERC20(_tokenAddress).safeIncreaseAllowance(address(uniswapRouterV2), uint256(-1)); // max approval
+    IERC20(_tokenAddress).safeIncreaseAllowance(address(uniswapRouterV2), type(uint256).max); // max approval
     depositTokens.add(_tokenAddress);
   }
 

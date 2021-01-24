@@ -55,7 +55,7 @@ contract('SmartTreasuryBootstrap', async accounts => {
     this.feeCollectorInstance = await FeeCollector.new(
       this.mockWETH.address,
       addresses.feeTreasuryAddress,
-      BNify('0'), // all to fee treasury
+      addresses.idleRebalancer,
       accounts[0],
       []
     )
@@ -94,12 +94,12 @@ contract('SmartTreasuryBootstrap', async accounts => {
   it('Should bootstrap', async function() {
     await this.smartTreasuryBootstrapInstance.swap([1, 1]); // swap all deposit tokens to WETH
 
-    await this.smartTreasuryBootstrapInstance._setIDLEPrice(web3.utils.toWei('135')); // Set price, this is used for setting initial weights
+    await this.smartTreasuryBootstrapInstance.setIDLEPrice(web3.utils.toWei('135')); // Set price, this is used for setting initial weights
     await this.smartTreasuryBootstrapInstance.initialise();
     await this.smartTreasuryBootstrapInstance.bootstrap();
 
-    let crpAddress = await this.smartTreasuryBootstrapInstance._getCRPAddress.call();
-    let bPool = await this.smartTreasuryBootstrapInstance._getCRPBPoolAddress.call();
+    let crpAddress = await this.smartTreasuryBootstrapInstance.getCRPAddress.call();
+    let bPool = await this.smartTreasuryBootstrapInstance.getCRPBPoolAddress.call();
     
     expect(crpAddress).to.not.equal(this.zeroAddress);
     expect(bPool).to.not.equal(this.zeroAddress);
@@ -108,12 +108,12 @@ contract('SmartTreasuryBootstrap', async accounts => {
   it('Should renounce ownership to governance', async function() {
     await this.smartTreasuryBootstrapInstance.swap([1, 1]) // swap all deposit tokens to WETH
 
-    await this.smartTreasuryBootstrapInstance._setIDLEPrice(web3.utils.toWei('135')) // Set price, this is used for setting initial weights
+    await this.smartTreasuryBootstrapInstance.setIDLEPrice(web3.utils.toWei('135')) // Set price, this is used for setting initial weights
     await this.smartTreasuryBootstrapInstance.initialise()
     await this.smartTreasuryBootstrapInstance.bootstrap()
     
-    let crpAddress = await this.smartTreasuryBootstrapInstance._getCRPAddress.call()
-    let bPoolAddress = await this.smartTreasuryBootstrapInstance._getCRPBPoolAddress.call()
+    let crpAddress = await this.smartTreasuryBootstrapInstance.getCRPAddress.call()
+    let bPoolAddress = await this.smartTreasuryBootstrapInstance.getCRPBPoolAddress.call()
     let crpInstance = await CRP.at(crpAddress)
     let bPoolInstance = await BPool.at(bPoolAddress)
 
@@ -167,7 +167,7 @@ contract('SmartTreasuryBootstrap', async accounts => {
 
     await this.mockDAI.transfer(newSmartTreasuryBootstrapInstance.address, BNify(web3.utils.toWei("10000")))
     await newSmartTreasuryBootstrapInstance.swap([1]) // swap all deposit tokens to WETH
-    await newSmartTreasuryBootstrapInstance._setIDLEPrice(BNify(web3.utils.toWei('135'))) // Set price, this is used for setting initial weights
+    await newSmartTreasuryBootstrapInstance.setIDLEPrice(BNify(web3.utils.toWei('135'))) // Set price, this is used for setting initial weights
     await newSmartTreasuryBootstrapInstance.initialise()
     await newSmartTreasuryBootstrapInstance.bootstrap()
     await newSmartTreasuryBootstrapInstance.renounce() 

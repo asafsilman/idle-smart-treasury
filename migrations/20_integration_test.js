@@ -92,7 +92,7 @@ module.exports = async function (deployer, network) {
   let smartTreasuryBootstrapInstance = await SmartTreasuryBootstrap.deployed()
   let feeCollectorInstance = await FeeCollector.deployed()
   const govInstance = await IGovernorAlpha.at(_addresses.governor)
-  let crpAddress = await smartTreasuryBootstrapInstance._getCRPAddress.call()
+  let crpAddress = await smartTreasuryBootstrapInstance.getgetCRPAddress.call()
   console.log("*************************** crpAddress", crpAddress)
   const smartTreasuryInstance = await ConfigurableRightsPool.at(crpAddress);
   const bPoolAddress = await smartTreasuryInstance.bPool();
