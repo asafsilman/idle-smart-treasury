@@ -248,6 +248,10 @@ contract FeeCollector is IFeeCollector, AccessControl {
     require(beneficiaries.length < MAX_BENEFICIARIES, "Max beneficiaries");
     require(_newBeneficiary!=address(0), "beneficiary cannot be 0 address");
 
+    for (uint256 i = 0; i < beneficiaries.length; i++) {
+      require(beneficiaries[i] != _newBeneficiary, "Duplicate beneficiary");
+    }
+
     _depositAllTokens();
 
     beneficiaries.push(_newBeneficiary);
