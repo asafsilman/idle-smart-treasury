@@ -34,7 +34,8 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
 
   uint256 private idlePerWeth; // internal price oracle for IDLE
 
-  bool private renounced;
+  enum ContractState { DEPLOYED, SWAPPED, INITIALISED, BOOTSTRAPPED, RENOUNCED }
+  ContractState contractState;
 
   IBFactory private immutable balancer_bfactory;
   ICRPFactory private immutable balancer_crpfactory;
@@ -93,8 +94,6 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
     timelock = _timelock;
     feeCollectorAddress = _feeCollectorAddress;
 
-    renounced = false; // flag to indicate whether renounce has been called
-
     address _depositToken;
     for (uint256 index = 0; index < _initialDepositTokens.length; index++) {
       _depositToken = _initialDepositTokens[index];
@@ -106,28 +105,36 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
     }
 
     transferOwnership(_multisig);
+    contractState = ContractState.DEPLOYED;
   }
 
   /**
   @author Asaf Silman
   @notice Converts all tokens in depositToken enumerable set to WETH.
+  @dev Can be called after deployment as many times an necissary.
   @dev Converts tokens using uniswap simple path. E.g. token -> WETH.
   @dev This should be called after the governance proposal has transfered funds to bootstrapping address
   @dev After this has been called, `swap()` should be called.
   @param minTokenOut Array of minimum tokens to recieve from swap
    */
   function swap(uint256[] calldata minTokenOut) external override onlyOwner {
-    require(minTokenOut.length == depositTokens.length(), "Invalid length");
+    require(contractState==ContractState.DEPLOYED || contractState==ContractState.SWAPPED, "Invalid state");
     uint256 counter = depositTokens.length();
+
+    require(minTokenOut.length == counter, "Invalid length");
 
     address[] memory path = new address[](2);
     path[1] = address(weth);
 
-    for (uint256 index = 0; index < counter; index++) {
-      address _tokenAddress = depositTokens.at(index);
-      IERC20 _tokenInterface = IERC20(_tokenAddress);
+    address _tokenAddress;
+    IERC20 _tokenInterface;
+    uint256 _currentBalance;
 
-      uint256 _currentBalance = _tokenInterface.balanceOf(address(this));
+    for (uint256 index = 0; index < counter; index++) {
+      _tokenAddress = depositTokens.at(index);
+      _tokenInterface = IERC20(_tokenAddress);
+
+      _currentBalance = _tokenInterface.balanceOf(address(this));
 
       path[0] = _tokenAddress;
       
@@ -136,9 +143,11 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
         minTokenOut[index],
         path,
         address(this),
-        block.timestamp
+        block.timestamp.add(1800)
       );
     }
+
+    contractState = ContractState.SWAPPED;
   }
 
   /**
@@ -149,14 +158,16 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
   @dev After this has been called, `bootstrap()` should be called.
    */
   function initialise() external override onlyOwner {
+    require(contractState == ContractState.SWAPPED, "Invalid State");
     require(crpaddress==address(0), "Cannot initialise if CRP already exists");
     require(idlePerWeth!=0, "IDLE price not set");
     
     uint256 idleBalance = idle.balanceOf(address(this));
     uint256 wethBalance = weth.balanceOf(address(this));
 
-    require(idleBalance > 100, "Cannot initialise without idle in contract");
-    require(wethBalance > 1, "Cannot initialise without weth in contract");
+    // hard-coded minimums of atleast 100 IDLE and 1 WETH
+    require(idleBalance > uint256(100).mul(10**18), "Cannot initialise without idle in contract");
+    require(wethBalance > uint256(1).mul(10**18), "Cannot initialise without weth in contract");
 
     address[] memory tokens = new address[](2);
     tokens[0] = address(idle);
@@ -173,8 +184,8 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
     uint256 totalValueInPool = idleValueInWeth.add(wethValue); // expressed in WETH
 
     uint256[] memory weights = new uint256[](2);
-    weights[0] = idleValueInWeth.mul(BalancerConstants.BONE * 25).div(totalValueInPool); // total value / num IDLE tokens
-    weights[1] = wethValue.mul(BalancerConstants.BONE * 25).div(totalValueInPool); // total value / num WETH tokens
+    weights[0] = idleValueInWeth.mul(BalancerConstants.BONE * 25).div(totalValueInPool); // IDLE value / total value
+    weights[1] = wethValue.mul(BalancerConstants.BONE * 25).div(totalValueInPool); // WETH value / total value
 
     require(weights[0] >= BalancerConstants.BONE  && weights[0] <= BalancerConstants.BONE.mul(24), "Invalid weights");
 
@@ -214,6 +225,8 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
 
     idle.safeIncreaseAllowance(crpaddress, balances[0]); // approve transfer of idle
     weth.safeIncreaseAllowance(crpaddress, balances[1]); // approve transfer of idle
+
+    contractState = ContractState.INITIALISED;
   }
 
   /**
@@ -223,6 +236,7 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
   @dev Can only be called after initialise has been called
    */
   function bootstrap() external override onlyOwner {
+    require(contractState == ContractState.INITIALISED, "Invalid State");
     require(crpaddress!=address(0), "Cannot bootstrap if CRP does not exist");
     
     ConfigurableRightsPool crp = ConfigurableRightsPool(crpaddress);
@@ -245,6 +259,8 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
       block.timestamp,
       block.timestamp.add(30 days)  // ~ 1 months
     );
+
+    contractState = ContractState.BOOTSTRAPPED;
   }
 
   /**
@@ -253,6 +269,7 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
   @notice Transfers balancer liquidity tokens to fee collector
    */
   function renounce() external override onlyOwner {
+    require(contractState == ContractState.BOOTSTRAPPED, "Invalid State");
     require(crpaddress != address(0), "Cannot renounce if CRP does not exist");
 
     ConfigurableRightsPool crp = ConfigurableRightsPool(crpaddress);
@@ -265,18 +282,18 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
     // transfer using safe transfer
     IERC20(crpaddress).safeTransfer(feeCollectorAddress, crp.balanceOf(address(this)));
     
-    renounced = true;
+    contractState = ContractState.RENOUNCED;
   }
 
   /**
   @author Asaf Silman
-  @notice Withdraws a arbitrarty ERC20 token from feeCollector to an arbitrary address.
+  @notice Withdraws a arbitrarty ERC20 token from this contract to an arbitrary address.
   @param _token The ERC20 token address.
   @param _toAddress The destination address.
   @param _amount The amount to transfer.
    */
   function withdraw(address _token, address _toAddress, uint256 _amount) external {
-    require((msg.sender == owner() && renounced == true) || msg.sender == timelock, "Only admin");
+    require((msg.sender == owner() && contractState == ContractState.RENOUNCED) || msg.sender == timelock, "Only admin");
 
     IERC20 token = IERC20(_token);
     token.safeTransfer(_toAddress, _amount);

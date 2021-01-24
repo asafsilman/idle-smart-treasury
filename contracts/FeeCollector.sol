@@ -99,7 +99,6 @@ contract FeeCollector is IFeeCollector, AccessControl {
     beneficiaries[1] = _feeTreasuryAddress; // setup fee treasury address
     beneficiaries[2] = _idleRebalancer; // setup fee treasury address
 
-    
     address _depositToken;
     for (uint256 index = 0; index < _initialDepositTokens.length; index++) {
       _depositToken = _initialDepositTokens[index];
@@ -123,6 +122,18 @@ contract FeeCollector is IFeeCollector, AccessControl {
     uint256[] memory _minTokenOut,
     uint256 _minPoolAmountOut
   ) public override smartTreasurySet onlyWhitelisted {
+    _deposit(_depositTokensEnabled, _minTokenOut, _minPoolAmountOut);
+  }
+
+  /**
+  @author Asaf Silman
+  @dev implements deposit()
+   */
+  function _deposit(
+    bool[] memory _depositTokensEnabled,
+    uint256[] memory _minTokenOut,
+    uint256 _minPoolAmountOut
+  ) internal {
     uint256 counter = depositTokens.length();
     require(_depositTokensEnabled.length == counter, "Invalid length");
     require(_minTokenOut.length == counter, "Invalid length");
@@ -131,6 +142,8 @@ contract FeeCollector is IFeeCollector, AccessControl {
     IERC20 _tokenInterface;
 
     uint256[] memory feeBalances;
+    uint256 wethBalance;
+    uint256 smartTreasuryFee;
 
     address[] memory path = new address[](2);
     path[1] = weth; // output will always be weth
@@ -155,7 +168,7 @@ contract FeeCollector is IFeeCollector, AccessControl {
           _minTokenOut[index], 
           path,
           address(this),
-          block.timestamp
+          block.timestamp.add(1800)
         );
       }
     }
@@ -163,22 +176,23 @@ contract FeeCollector is IFeeCollector, AccessControl {
     // deposit all swapped WETH + the already present weth balance
     // to beneficiaries
     // the beneficiary at index 0 is the smart treasury
-    uint256 wethBalance = IERC20(weth).balanceOf(address(this));
+    wethBalance = IERC20(weth).balanceOf(address(this));
     if (wethBalance > 0){
 
+      // feeBalances[0] is fee sent to smartTreasury
       feeBalances = _amountsFromAllocations(allocations, wethBalance);
-      // _feeToSmartTreasury = feeBalances[0]; // fee sent to smartTreasury
+      smartTreasuryFee = feeBalances[0];
 
-      if (wethBalance.sub(feeBalances[0]) > 0){
+      if (wethBalance.sub(smartTreasuryFee) > 0){
           // NOTE: allocation starts at 1, NOT 0, since 0 is reserved for smart treasury
           for (uint256 a_index = 1; a_index < allocations.length; a_index++){
             IERC20(weth).safeTransfer(beneficiaries[a_index], feeBalances[a_index]);
           }
         }
 
-      if (feeBalances[0] > 0) {
+      if (smartTreasuryFee > 0) {
         ConfigurableRightsPool crp = ConfigurableRightsPool(beneficiaries[0]); // the smart treasury is at index 0
-        crp.joinswapExternAmountIn(weth, feeBalances[0], _minPoolAmountOut);
+        crp.joinswapExternAmountIn(weth, smartTreasuryFee, _minPoolAmountOut);
       }
     }
   }
@@ -232,7 +246,7 @@ contract FeeCollector is IFeeCollector, AccessControl {
       minTokenOut[i] = 1;
     }
 
-    deposit(depositTokensEnabled, minTokenOut, 1);
+    _deposit(depositTokensEnabled, minTokenOut, 1);
   }
 
   /**
@@ -281,6 +295,7 @@ contract FeeCollector is IFeeCollector, AccessControl {
    */
   function removeBeneficiaryAt(uint256 _index, uint256[] calldata _newAllocation) external override smartTreasurySet onlyAdmin {
     require(_index >= 1, "Invalid beneficiary to remove");
+    require(_index < beneficiaries.length, "Out of range");
     require(beneficiaries.length > MIN_BENEFICIARIES, "Min beneficiaries");
     
     _depositAllTokens();
@@ -305,6 +320,10 @@ contract FeeCollector is IFeeCollector, AccessControl {
   function replaceBeneficiaryAt(uint256 _index, address _newBeneficiary, uint256[] calldata _newAllocation) external override smartTreasurySet onlyAdmin {
     require(_index >= 1, "Invalid beneficiary to remove");
     require(_newBeneficiary!=address(0), "Beneficiary cannot be 0 address");
+
+    for (uint256 i = 0; i < beneficiaries.length; i++) {
+      require(beneficiaries[i] != _newBeneficiary, "Duplicate beneficiary");
+    }
 
     _depositAllTokens();
     
@@ -392,8 +411,7 @@ contract FeeCollector is IFeeCollector, AccessControl {
   @param _amount The amount to transfer.
    */
   function withdraw(address _token, address _toAddress, uint256 _amount) external override onlyAdmin {
-    IERC20 token = IERC20(_token);
-    token.safeTransfer(_toAddress, _amount);
+    IERC20(_token).safeTransfer(_toAddress, _amount);
   }
 
   /**
@@ -447,16 +465,22 @@ contract FeeCollector is IFeeCollector, AccessControl {
     // tokens are exitted to feeCollector
     crp.exitPool(_amount, minTokenOut);
 
+    IERC20 tokenInterface;
+    uint256 tokenBalanceToTransfer;
     for (uint256 i=0; i<poolTokens.length; i++) {
-      IERC20 tokenInterface = IERC20(poolTokens[i]);
+      tokenInterface = IERC20(poolTokens[i]);
 
-      // transfer to `_toAddress` [newBalance - oldBalance]
-      tokenInterface.safeTransfer(
-        _toAddress,
-        tokenInterface.balanceOf(address(this)).sub( // get the new balance of token
-          feeCollectorTokenBalances[i] // subtract previous balance
-        )
-      ); // transfer to `_toAddress`
+      tokenBalanceToTransfer = tokenInterface.balanceOf(address(this)).sub( // get the new balance of token
+        feeCollectorTokenBalances[i] // subtract previous balance
+      );
+
+      if (tokenBalanceToTransfer > 0) {
+        // transfer to `_toAddress` [newBalance - oldBalance]
+        tokenInterface.safeTransfer(
+          _toAddress,
+          tokenBalanceToTransfer
+        ); // transfer to `_toAddress`
+      }
     }
   }
 

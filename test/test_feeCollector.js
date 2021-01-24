@@ -195,6 +195,17 @@ contract("FeeCollector", async accounts => {
     console.log(`Gas used: ${transaction.receipt.gasUsed}`)
   })
 
+  it('Should not be able to add duplicate beneficiaries', async function() {
+    let instance = this.feeCollectorInstance
+    await instance.setSmartTreasuryAddress(this.crp.address) // must set smart treasury address
+
+    let allocationA = [this.ratio_one_pecrent.mul(BNify('100')), BNify('0'), BNify('0'), BNify('0')]
+    let allocationB = [this.ratio_one_pecrent.mul(BNify('100')), BNify('0'), BNify('0'), BNify('0'), BNify('0')]
+
+    await instance.addBeneficiaryAddress(accounts[0], allocationA)
+    expectRevert(instance.addBeneficiaryAddress(accounts[0], allocationA), "Duplicate beneficiary")
+  })
+
   it("Should remove beneficiary", async function() {
     let instance = this.feeCollectorInstance
     await instance.setSmartTreasuryAddress(this.crp.address) // must set smart treasury address
