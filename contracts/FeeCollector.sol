@@ -139,7 +139,7 @@ contract FeeCollector is IFeeCollector, AccessControl {
       if (_currentBalance > 0) {
         // create simple route; token->WETH
         
-        path[0] = depositTokens.at(index);
+        path[0] = address(_tokenInterface);
         
         // swap token
         uniswapRouterV2.swapExactTokensForTokensSupportingFeeOnTransferTokens(
