@@ -69,6 +69,24 @@ const addresses = {
     feeTokens: [
       '0x4F96Fe3b7A6Cf9725f59d353F723c1bDb64CA6Aa' // DAI
     ]
+  },
+
+  rinkeby: {
+    uniswapFactory: '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f',
+    uniswapRouterAddress: '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D',
+
+    weth: '0xc778417e063141139fce010982780140aa0cd5ab',
+    dai: '0x569aaff8f90a5e48b27c154249ee5a08ed0c44e2',
+    idle: '0x20b6a30ab799a62c6538f84d1c58c711870ad75b',
+
+    feeTreasuryAddress: '0x69a62C24F16d4914a48919613e8eE330641Bcb94', // test
+    idleRebalancer: "0xb3c8e5534f0063545cbbb7ce86854bf42db8872b",
+
+    multisig: "0x330bE2478E07C927b99980a444a511787c2d6F1a", // test multisig
+
+    feeTokens: [
+      '0x569aaff8f90a5e48b27c154249ee5a08ed0c44e2', // dai
+    ]
   }
 };
 

@@ -1,4 +1,5 @@
 build/
+flattened/
 node_modules/
 
 coverage.json
