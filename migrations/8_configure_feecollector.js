@@ -21,7 +21,7 @@ module.exports = async function (deployer, network) {
   let feeCollectorInstance = await FeeCollector.deployed()
   
 
-  let crpAddress = await smartTreasuryBootstrapInstance._getCRPAddress.call()
+  let crpAddress = await smartTreasuryBootstrapInstance.getCRPAddress.call()
   await feeCollectorInstance.setSmartTreasuryAddress(crpAddress, {from: _addresses.multisig})
   // await feeCollectorInstance.addAddressToWhiteList(_addresses.idleRebalancer, {from: _addresses.multisig})
 
