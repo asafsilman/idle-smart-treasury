@@ -35,7 +35,7 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
   uint256 private idlePerWeth; // internal price oracle for IDLE
 
   enum ContractState { DEPLOYED, SWAPPED, INITIALISED, BOOTSTRAPPED, RENOUNCED }
-  ContractState contractState;
+  ContractState private contractState;
 
   IBFactory private immutable balancer_bfactory;
   ICRPFactory private immutable balancer_crpfactory;
@@ -333,6 +333,7 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
     depositTokens.remove(_tokenAddress);
   }
 
+  function getState() external view returns (ContractState) {return contractState; }
   function getIDLEperWETH() external view returns (uint256) {return idlePerWeth; }
   function getCRPAddress() external view returns (address) { return crpaddress; }
   function getCRPBPoolAddress() external view returns (address) {
