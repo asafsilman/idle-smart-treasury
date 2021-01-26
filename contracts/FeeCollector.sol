@@ -141,9 +141,7 @@ contract FeeCollector is IFeeCollector, AccessControl {
     uint256 _currentBalance;
     IERC20 _tokenInterface;
 
-    uint256[] memory feeBalances;
     uint256 wethBalance;
-    uint256 smartTreasuryFee;
 
     address[] memory path = new address[](2);
     path[1] = weth; // output will always be weth
@@ -178,10 +176,9 @@ contract FeeCollector is IFeeCollector, AccessControl {
     // the beneficiary at index 0 is the smart treasury
     wethBalance = IERC20(weth).balanceOf(address(this));
     if (wethBalance > 0){
-
       // feeBalances[0] is fee sent to smartTreasury
-      feeBalances = _amountsFromAllocations(allocations, wethBalance);
-      smartTreasuryFee = feeBalances[0];
+      uint256[] memory feeBalances = _amountsFromAllocations(allocations, wethBalance);
+      uint256 smartTreasuryFee = feeBalances[0];
 
       if (wethBalance.sub(smartTreasuryFee) > 0){
           // NOTE: allocation starts at 1, NOT 0, since 0 is reserved for smart treasury
