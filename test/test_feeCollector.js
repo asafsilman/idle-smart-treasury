@@ -135,7 +135,7 @@ contract("FeeCollector", async accounts => {
     
     let feeTreasuryWethBalanceBefore = BNify(await this.mockWETH.balanceOf.call(addresses.feeTreasuryAddress))
     let smartTreasuryWethBalanceBefore = BNify(await this.mockWETH.balanceOf.call(this.bPool.address))
-    // let smartTreasuryWethBalanceBefore = BNify(await wethContract.methods.balanceOf(meta.address).call()); 
+    let balancerPoolTokenSupplyBefore = BNify(await this.crp.totalSupply.call());
     
     let depositAmount = web3.utils.toWei("500")
     await this.mockDAI.transfer(instance.address, depositAmount, {from: accounts[0]}) // 500 DAI
@@ -143,16 +143,17 @@ contract("FeeCollector", async accounts => {
     
     let feeTreasuryWethBalanceAfter = BNify(await this.mockWETH.balanceOf.call(addresses.feeTreasuryAddress))
     let smartTreasuryWethBalanceAfter = BNify(await this.mockWETH.balanceOf.call(this.bPool.address))     
+    let balancerPoolTokenSupplyAfter = BNify(await this.crp.totalSupply.call());
     
-    let balancerPoolTokenBalance = BNify(await this.crp.balanceOf.call(instance.address));
-
+    
     let smartTreasuryWethBalanceDiff = smartTreasuryWethBalanceAfter.sub(smartTreasuryWethBalanceBefore)
     let feeTreasuryWethBalanceDiff = feeTreasuryWethBalanceAfter.sub(feeTreasuryWethBalanceBefore)
+    let balancerPoolTokenSupplyDiff = balancerPoolTokenSupplyAfter.sub(balancerPoolTokenSupplyBefore)
 
     expect(feeTreasuryWethBalanceDiff).to.be.bignumber.equal(smartTreasuryWethBalanceDiff)
     expect(smartTreasuryWethBalanceDiff).to.be.bignumber.that.is.greaterThan(BNify('0'))
     
-    expect(balancerPoolTokenBalance).to.be.bignumber.that.is.greaterThan(BNify('0'))
+    expect(balancerPoolTokenSupplyDiff).to.be.bignumber.that.is.greaterThan(BNify('0'))
   })
 
   it("Should deposit with max fee tokens and max beneficiaries", async function() {

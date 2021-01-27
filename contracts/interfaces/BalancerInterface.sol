@@ -171,6 +171,7 @@ interface ConfigurableRightsPool {
 
   function transfer(address recipient, uint amount) external returns (bool);
   function balanceOf(address account) external returns (uint);
+  function totalSupply() external returns (uint);
   function bPool() external view returns (BPool);
 
   function exitPool(uint poolAmountIn, uint[] calldata minAmountsOut) external;
