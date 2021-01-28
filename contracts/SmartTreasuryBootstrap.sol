@@ -10,8 +10,6 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 
 import '@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol';
-import '@uniswap/v2-periphery/contracts/libraries/UniswapV2OracleLibrary.sol';
-import '@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol';
 
 import "./interfaces/ISmartTreasuryBootstrap.sol";
 import "./interfaces/BalancerInterface.sol";
@@ -27,8 +25,8 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
   using SafeERC20 for IERC20;
   using SafeMath for uint256;
 
-  address immutable timelock;
-  address immutable feeCollectorAddress;
+  address public immutable timelock;
+  address public immutable feeCollectorAddress;
 
   address private crpaddress;
 
@@ -341,4 +339,13 @@ contract SmartTreasuryBootstrap is ISmartTreasuryBootstrap, Ownable {
     return address(ConfigurableRightsPool(crpaddress).bPool());
   }
   function tokenInDepositList(address _tokenAddress) external view returns (bool) {return depositTokens.contains(_tokenAddress);}
+  function getDepositTokens() external view returns (address[] memory) {
+    uint256 numTokens = depositTokens.length();
+
+    address[] memory depositTokenList = new address[](numTokens);
+    for (uint256 index = 0; index < numTokens; index++) {
+      depositTokenList[index] = depositTokens.at(index);
+    }
+    return (depositTokenList);
+  }
 }
