@@ -26,16 +26,21 @@ module.exports = async function (_deployer, network) {
   _addresses = addresses[network]
 
   let bootstrapInstance = await SmartTreasuryBootstrap.deployed()
+  console.log(`BootstrapAddress: ${bootstrapInstance.address}`)
 
   let proposal = {
-    targets: [_addresses.ecosystemFund],
-    values: [BNify("0")],
-    signatures: ["transfer(address,address,uint256)"],
-    calldatas: [web3.eth.abi.encodeParameters(
-      ['address', 'address', 'uint256'],
-      [_addresses.idle, bootstrapInstance.address, web3.utils.toWei(BNify("130000"))]
-    )],
-    description: 'Test',
+    targets: [_addresses.ecosystemFund, _addresses.ecosystemFund],
+    values: [BNify("0"), BNify("0")],
+    signatures: ["transfer(address,address,uint256)", "transfer(address,address,uint256)"],
+    calldatas: [
+      web3.eth.abi.encodeParameters(
+        ['address', 'address', 'uint256'],
+        [_addresses.idle, bootstrapInstance.address, web3.utils.toWei(BNify("130000"))] ),
+      web3.eth.abi.encodeParameters(
+        ['address', 'address', 'uint256'],
+        [_addresses.idle, _addresses.multisig, web3.utils.toWei(BNify("1300"))] )
+    ],
+    description: '#IIP 2 - Add a Smart Treasury (1/2) \n Transfer funds to Bootstrap smart treasury. Full details https://gov.idle.finance/t/iip-2-add-a-smart-treasury-to-idle/211',
     from: _addresses._founder
   }
 

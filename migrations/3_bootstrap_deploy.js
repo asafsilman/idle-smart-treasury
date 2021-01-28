@@ -10,6 +10,7 @@ module.exports = async function (deployer, network) {
   _addresses = addresses[network]
 
   let feeCollectorInstance = await FeeCollector.deployed()
+  console.log(`FeeCollectorAddress: ${feeCollectorInstance.address}`)
 
   await deployer.deploy(SmartTreasuryBootstrap,
     _addresses.balancerCoreFactory,

@@ -24,13 +24,10 @@ module.exports = async function (_deployer, network) {
   let feeCollectorInstance = await FeeCollector.deployed()
 
   let proposal = {
-    targets: [_addresses.ecosystemFund],
-    values: [BNify("0")],
-    signatures: ["transfer(address,address,uint256)"],
-    calldatas: [web3.eth.abi.encodeParameters(
-      ['address', 'address', 'uint256'],
-      [_addresses.idle, "0x1929A0454cDD4d925E8Fc9b6c366ECD7844866F2", web3.utils.toWei(BNify("1000"))] // transfer 1000 idle to 8bitporkchop as payment
-    )],
+    targets: [],
+    values: [],
+    signatures: [],
+    calldatas: [],
     description: 'Test',
     from: _addresses._founder
   }
