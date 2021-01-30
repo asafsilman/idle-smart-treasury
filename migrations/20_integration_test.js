@@ -89,8 +89,8 @@ module.exports = async function (deployer, network) {
     await advanceBlocks(2);
   };
 
-  let smartTreasuryBootstrapInstance = await SmartTreasuryBootstrap.deployed()
-  let feeCollectorInstance = await FeeCollector.deployed()
+  let smartTreasuryBootstrapInstance = await SmartTreasuryBootstrap.at("0x4FF95c83e874Df9029a665a0abA31828BADa9596")
+  let feeCollectorInstance = await FeeCollector.at("0xBecC659Bfc6EDcA552fa1A67451cC6b38a0108E4")
   const govInstance = await IGovernorAlpha.at(_addresses.governor)
   let crpAddress = await smartTreasuryBootstrapInstance.getCRPAddress.call()
   console.log("*************************** crpAddress", crpAddress)
@@ -218,12 +218,13 @@ module.exports = async function (deployer, network) {
   const USDC = await IERC20.at("0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48");
   const WETH = await IERC20.at(_addresses.weth);
   const IDLE = await IERC20.at(_addresses.idle);
+  const DAI = await IERC20.at(_addresses.dai);
 
-  await DAI.transfer(FeeCollector.address, toBN("100").mul(ONE18), { from: TOKENS_HOLDER });
-  await USDC.transfer(FeeCollector.address, toBN("100").mul(ONE6), { from: TOKENS_HOLDER });
+  await DAI.transfer(feeCollectorInstance.address, toBN("100").mul(ONE18), { from: TOKENS_HOLDER });
+  await USDC.transfer(feeCollectorInstance.address, toBN("100").mul(ONE6), { from: TOKENS_HOLDER });
 
-  const feeCollectorDAIBalanceBefore = await DAI.balanceOf(FeeCollector.address);
-  const feeCollectorUSDCBalanceBefore = await USDC.balanceOf(FeeCollector.address);
+  const feeCollectorDAIBalanceBefore = await DAI.balanceOf(feeCollectorInstance.address);
+  const feeCollectorUSDCBalanceBefore = await USDC.balanceOf(feeCollectorInstance.address);
   const poolWETHBalanceBefore = await WETH.balanceOf(bPoolAddress);
   const poolIDLEBalanceBefore = await IDLE.balanceOf(bPoolAddress);
 
@@ -233,15 +234,16 @@ module.exports = async function (deployer, network) {
   console.log(poolIDLEBalanceBefore.toString())
   console.log("-----")
 
-  await feeCollectorInstance.deposit(
-    [false, false, false, true, false, true, false],
+  let trx = await feeCollectorInstance.deposit(
+    [false, false, false, true, true, false, false],
     [0, 0, 0, 0, 0, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0],
+    0,
     { from: _addresses.multisig }
   );
+  console.log(trx)
 
-  const feeCollectorDAIBalanceAfter = await DAI.balanceOf(FeeCollector.address);
-  const feeCollectorUSDCBalanceAfter = await USDC.balanceOf(FeeCollector.address);
+  const feeCollectorDAIBalanceAfter = await DAI.balanceOf(feeCollectorInstance.address);
+  const feeCollectorUSDCBalanceAfter = await USDC.balanceOf(feeCollectorInstance.address);
   const poolWETHBalanceAfter = await WETH.balanceOf(bPoolAddress);
   const poolIDLEBalanceAfter = await IDLE.balanceOf(bPoolAddress);
 
