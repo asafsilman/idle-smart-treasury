@@ -12,7 +12,7 @@ const SmartTreasuryBootstrap = artifacts.require("SmartTreasuryBootstrap")
 
 const BNify = n => new BN(String(n))
 
-const proposeProposal = async (gov, founder, {targets, values, signatures, calldatas, description, from}) => {
+const proposeProposal = async (gov, from, {targets, values, signatures, calldatas, description}) => {
   await gov.propose(targets, values, signatures, calldatas, description,
     {from}
   );
@@ -40,8 +40,7 @@ module.exports = async function (_deployer, network) {
         ['address', 'address', 'uint256'],
         [_addresses.idle, _addresses.multisig, web3.utils.toWei(BNify("1300"))] )
     ],
-    description: '#IIP 2 - Add a Smart Treasury (1/2) \n Transfer funds to Bootstrap smart treasury. Full details https://gov.idle.finance/t/iip-2-add-a-smart-treasury-to-idle/211',
-    from: _addresses._founder
+    description: '#IIP 2 - Add a Smart Treasury (1/2) \n Transfer funds to bootstrap the smart treasury. Full details https://gov.idle.finance/t/iip-2-add-a-smart-treasury-to-idle/211',
   }
 
   // await _addresses.feeTokens.map((el) => {
@@ -50,6 +49,7 @@ module.exports = async function (_deployer, network) {
     var contract = new web3.eth.Contract(ERC20abi, el)
 
     await contract.methods.balanceOf(_addresses.feeTreasuryAddress).call().then((bal) => {
+      console.log(`Balance for ${el} is ${bal}`)
       proposal.targets.push(_addresses.feeTreasuryAddress)
       proposal.values.push(BNify("0"))
       proposal.signatures.push("transfer(address,address,uint256)")
@@ -74,6 +74,8 @@ module.exports = async function (_deployer, network) {
   } else {
     founder = '0x143daa7080f05557C510Be288D6491BC1bAc9958'
   }
+
+  console.log(`Transaction Sender: ${founder}`)
   // propose
   const govInstance = await IGovernorAlpha.at(_addresses.governor)
   await proposeProposal(govInstance, founder, proposal)

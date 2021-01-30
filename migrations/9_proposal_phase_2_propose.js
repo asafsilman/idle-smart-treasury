@@ -8,7 +8,7 @@ const IGovernorAlpha = artifacts.require("IGovernorAlpha")
 
 const BNify = n => new BN(String(n))
 
-const proposeProposal = async (gov, founder, {targets, values, signatures, calldatas, description, from}) => {
+const proposeProposal = async (gov, from, {targets, values, signatures, calldatas, description}) => {
   await gov.propose(targets, values, signatures, calldatas, description,
     {from}
   );
@@ -28,8 +28,7 @@ module.exports = async function (_deployer, network) {
     values: [],
     signatures: [],
     calldatas: [],
-    description: 'Test',
-    from: _addresses._founder
+    description: '#IIP 2 - Add a Smart Treasury (2/2) \n Set fee address for idle tokens to FeeCollector contract. Full details https://gov.idle.finance/t/iip-2-add-a-smart-treasury-to-idle/211',
   }
 
   for (let i = 0; i < _addresses.idleTokens.length; i++) {
@@ -41,8 +40,14 @@ module.exports = async function (_deployer, network) {
     proposal.calldatas.push(web3.eth.abi.encodeParameters(['address'], [feeCollectorInstance.address]))
   }
 
-  const founder = _addresses._founder
+  var founder;
+  if (network !== 'mainnet') {
+    founder = _addresses._founder
+  } else {
+    founder = '0x143daa7080f05557C510Be288D6491BC1bAc9958'
+  }
 
+  console.log(`Transaction Sender: ${founder}`)
   const govInstance = await IGovernorAlpha.at(_addresses.governor)
 
   // assume already delegated to `founder` address
